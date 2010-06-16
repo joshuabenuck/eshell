@@ -4,10 +4,10 @@ import java.util.Arrays;
 import java.util.Deque;
 import java.util.LinkedList;
 
-public class ShellE {
+public class Eshell {
     private Env env = new Env();
 
-    public ShellE(DynamicShell root) {
+    public Eshell(DynamicShell root) {
         this.env = new Env();
         env.setCurrentShell(root);
     }
@@ -30,6 +30,7 @@ public class ShellE {
     }
 
     private Env processStatement(String stmt, Env env) {
+        stmt = strip(stmt);
         Object tmp = env.getCurrentShell();
         Deque<String> cmds = new LinkedList<String>(Arrays.asList(stmt.split(" ")));
         while(!cmds.isEmpty())
@@ -41,5 +42,12 @@ public class ShellE {
             env.setCurrentShell((DynamicShell) tmp);
         }
         return env;
+    }
+    
+    private String strip(String s)
+    {
+        while(s.indexOf(" ") == 0) s = s.substring(1);
+        while(s.lastIndexOf(" ") == s.length() - 1) s = s.substring(0, s.length() - 1);
+        return s;
     }
 }

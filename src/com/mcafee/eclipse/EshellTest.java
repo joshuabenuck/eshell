@@ -5,7 +5,7 @@ import junit.framework.TestCase;
 import com.mcafee.eclipse.cmd.PwsCmd;
 import com.mcafee.eclipse.cmd.StaticCmd;
 
-public class ShellETest extends TestCase {
+public class EshellTest extends TestCase {
     private DefaultDynamicShell root = new DefaultDynamicShell("/", null);
     private DefaultDynamicShell ant = new DefaultDynamicShell("ant", root);
     private DefaultDynamicShell server = new DefaultDynamicShell("server", root);
@@ -30,17 +30,17 @@ public class ShellETest extends TestCase {
 	}
 
     public void testParse() throws Exception {
-		ShellE shellE = new ShellE(root);
-		shellE.run("ant");
-		shellE.run("core");
-		assertEquals("core", shellE.run("pws"));
+		Eshell eshell = new Eshell(root);
+		eshell.run("ant");
+		eshell.run("core");
+		assertEquals("core", eshell.run("pws"));
 //		shellE.complete("");
-		shellE.run("server");
-		assertEquals("server", shellE.run("pws"));
-		shellE.run("ant scheduler");
-		assertEquals("scheduler", shellE.run("pws"));
-		assertEquals("start", shellE.run("ant scheduler; server start"));
-		assertEquals("server", shellE.run("pws"));
+		eshell.run("server");
+		assertEquals("server", eshell.run("pws"));
+		eshell.run("ant scheduler");
+		assertEquals("scheduler", eshell.run("pws"));
+		assertEquals("start", eshell.run("ant scheduler; server start"));
+		assertEquals("scheduler", eshell.run("pws"));
 //		shellE.complete("");
 	}
 }	
