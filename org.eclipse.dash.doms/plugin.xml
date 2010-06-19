@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.0"?>
+<plugin>
+   <extension
+         point="org.eclipse.eclipsemonkey.dom">
+      <dom
+            class="org.eclipse.dash.dom.workspace.WorkspaceDOMFactory"
+            variableName="workspace"/>
+      <dom
+            class="org.eclipse.dash.dom.resources.ResourcesDOMFactory"
+            variableName="resources"/>
+      <dom
+            class="org.eclipse.dash.dom.io.IODOMFactory"
+            variableName="io"/>
+      <dom
+            class="org.eclipse.dash.dom.editors.EditorsDOMFactory"
+            variableName="editors"/>
+   </extension>
+
+ </plugin>

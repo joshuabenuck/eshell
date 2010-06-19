@@ -13,43 +13,63 @@ package org.jrfonseca.pythonmonkey;
 
 import java.net.URL;
 import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.ConcurrentSkipListSet;
 
 import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.Platform;
+import org.eclipse.eclipsemonkey.EclipseMonkeyPlugin;
+import org.eclipse.eclipsemonkey.IScriptStoreListener;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
-
-import org.osgi.framework.BundleContext;
 import org.osgi.framework.Bundle;
-
+import org.osgi.framework.BundleContext;
 import org.python.core.PySystemState;
 
 /**
  * The activator class controls the plug-in life cycle
  */
 public class PythonPlugin extends AbstractUIPlugin {
-
+    private BundleContext context = null;
+    private static PythonPlugin plugin = null;
+    
 	/**
 	 * The constructor
 	 */
 	public PythonPlugin() {
+	    plugin = this;
+	}
+	
+	public static PythonPlugin getDefault()
+	{
+	    return plugin;
 	}
 
 	public void start(BundleContext context) throws Exception {
 		super.start(context);
-
-		Properties preProperties = System.getProperties();
-
-		Properties postProperties = new Properties();
-		postProperties.put("python.home",getPluginRootDir());
-
-		PythonClassLoader classLoader = new PythonClassLoader();
-		
-		PySystemState.initialize(preProperties, postProperties, new String[0], classLoader);
-		
-		Bundle[] bundles = context.getBundles();
-		for(int i = 0; i < bundles.length; ++i) {
-			classLoader.addBundle(bundles[i]);
-		}
+		this.context = context;
+		initPySystem();
+	}
+	
+	public void initPySystem()
+	{
+	    Properties preProperties = System.getProperties();
+	    
+	    Properties postProperties = new Properties();
+	    postProperties.put("python.home",getPluginRootDir());
+	    
+	    PythonClassLoader classLoader = new PythonClassLoader();
+	    
+	    PySystemState.initialize(preProperties, postProperties, new String[0], classLoader);
+	    
+	    Bundle[] bundles = context.getBundles();
+	    for(int i = 0; i < bundles.length; ++i) {
+	        classLoader.addBundle(bundles[i]);
+	    }
+	}
+	
+	public void shutdownPySystem()
+	{
+	    PySystemState.exit();
 	}
 
 	private String getPluginRootDir() {
@@ -62,5 +82,9 @@ public class PythonPlugin extends AbstractUIPlugin {
             throw new RuntimeException(e);
         }
     }
-
+	
+    @Override
+    public void stop(BundleContext context) throws Exception {
+        super.stop(context);
+    }
 }

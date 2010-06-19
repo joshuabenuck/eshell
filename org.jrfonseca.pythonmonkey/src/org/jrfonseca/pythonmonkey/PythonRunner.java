@@ -13,6 +13,7 @@
 
 package org.jrfonseca.pythonmonkey;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Map;
@@ -39,9 +40,9 @@ import org.eclipse.ui.console.ConsolePlugin;
 import org.eclipse.ui.console.IConsole;
 import org.eclipse.ui.console.MessageConsole;
 import org.eclipse.ui.console.MessageConsoleStream;
-
+import org.python.core.PyException;
+import org.python.core.PySystemState;
 import org.python.util.PythonInterpreter;
-import org.python.core.*;
 
 /**
  *
@@ -83,12 +84,11 @@ public class PythonRunner implements IMonkeyScriptRunner {
 	 */
 	public Object run(String entryName, Object[] functionArgs) 
 			throws RunMonkeyException {
-		
 		Object result = null;
 		
 		try {
 			String fileName = this.path.toPortableString();
-			Map scriptStore = EclipseMonkeyPlugin.getDefault().getScriptStore();
+			Map<String,StoredScript> scriptStore = EclipseMonkeyPlugin.getDefault().getScriptStore();
 
 			storedScript = (StoredScript) (scriptStore.get(fileName));
 			
@@ -98,8 +98,9 @@ public class PythonRunner implements IMonkeyScriptRunner {
 
 			defineDynamicVariables(path);
 
+			PythonInterpreter interp = null;
 			try {
-				PythonInterpreter interp = new PythonInterpreter();
+				interp = new PythonInterpreter();
 
 				defineStandardGlobalVariables(interp);
 				defineExtensionGlobalVariables(interp, storedScript.metadata);
@@ -107,9 +108,18 @@ public class PythonRunner implements IMonkeyScriptRunner {
 				interp.setOut(getConsoleOutStream());
 				interp.setErr(getConsoleErrStream());
 				
+				interp.exec("import sys\n");
+				for (String path : scriptStore.keySet())
+				{
+				    if (!path.endsWith(".py")) continue;
+				    path = new File(path).getParent();
+				    interp.exec("if \"" + path + "\" not in sys.path:\n" +
+				                "\tsys.path.append(\"" + path + "\")");
+				}
 				interp.execfile(new FileInputStream(path.toFile()), path.toPortableString());
 			}
 			finally {
+			    if (interp != null) interp.cleanup();
 				undefineDynamicVariables(path);
 			}
 		}

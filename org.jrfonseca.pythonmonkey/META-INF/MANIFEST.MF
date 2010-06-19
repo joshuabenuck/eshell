@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: Eclipse Monkey Python Support
 Bundle-SymbolicName: org.jrfonseca.pythonmonkey;singleton:=true
-Bundle-Version: 0.1.0
+Bundle-Version: 0.1.1
 Bundle-Activator: org.jrfonseca.pythonmonkey.PythonPlugin
 Require-Bundle: org.eclipse.core.runtime,
  org.eclipse.ui,
@@ -11,7 +11,7 @@ Require-Bundle: org.eclipse.core.runtime,
  org.eclipse.eclipsemonkey.ui,
  org.eclipse.ui.console
 Eclipse-LazyStart: true
-Bundle-RequiredExecutionEnvironment: J2SE-1.4
+Bundle-RequiredExecutionEnvironment: JavaSE-1.6
 Bundle-Vendor: José Fonseca
 Export-Package: org.jrfonseca.pythonmonkey;
   uses:="org.eclipse.eclipsemonkey,

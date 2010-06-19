@@ -1,0 +1,18 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Eclipse Monkey Domifier Plug-in
+Bundle-SymbolicName: org.eclipse.dash.domifier;singleton:=true
+Bundle-Version: 0.1.0
+Bundle-Localization: plugin
+Require-Bundle: org.eclipse.core.resources,
+ org.eclipse.eclipsemonkey,
+ org.eclipse.core.runtime,
+ org.eclipse.dash.doms,
+ org.eclipse.update.core,
+ org.eclipse.ui.ide,
+ org.eclipse.ui,
+ org.eclipse.jdt.core,
+ org.eclipse.jface.text,
+ org.eclipse.pde.core,
+ org.eclipse.pde.ui
+Export-Package: org.eclipse.dash.dom.project

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<site>
+   <description url="http://download.eclipse.org/technology/dash/update/">
+      Eclipse&apos;s Dash Project - Tools for Community
+   </description>
+   <feature url="features/org.eclipse.eclipsemonkey_1.0.1.200804062139.jar" id="org.eclipse.eclipsemonkey" version="1.0.1.200804062139">
+      <category name="Eclipse Monkey"/>
+   </feature>
+   <category-def name="Eclipse Monkey" label="Eclipse Monkey"/>
+</site>

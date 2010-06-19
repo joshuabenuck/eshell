@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="con" path="org.eclipse.pde.core.requiredPlugins"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/org.eclipse.dash.domifier"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/org.eclipse.dash.doms"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/org.eclipse.eclipsemonkey"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/org.eclipse.eclipsemonkey.doms"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/org.eclipse.eclipsemonkey.standarddoms"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/org.eclipse.eclipsemonkey.ui"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/org.mozilla.rhino"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

@@ -1,0 +1,17 @@
+data/org.jrfonseca.pythonmonkey-examples/.project.i
+data/org.jrfonseca.pythonmonkey/src/org/jrfonseca/pythonmonkey/PythonPlugin.java.i
+data/org.jrfonseca.pythonmonkey/src/org/jrfonseca/pythonmonkey/PythonClassLoader.java.i
+data/org.jrfonseca.pythonmonkey/src/org/jrfonseca/pythonmonkey/PythonLanguageFactory.java.i
+data/org.jrfonseca.pythonmonkey/src/org/jrfonseca/pythonmonkey/PythonRunner.java.i
+data/org.jrfonseca.pythonmonkey/plugin.xml.i
+data/org.jrfonseca.pythonmonkey-examples/scripts/Editors__Replace_Selection_with_Date.py.i
+data/org.jrfonseca.pythonmonkey-examples/scripts/Hello__Jose.py.i
+data/org.jrfonseca.pythonmonkey/.project.i
+data/org.jrfonseca.pythonmonkey/META-INF/MANIFEST.MF.i
+data/org.jrfonseca.pythonmonkey/.classpath.i
+data/org.jrfonseca.pythonmonkey-examples/scripts/Editors__Comment_Lines.py.i
+data/org.jrfonseca.pythonmonkey-examples/scripts/Views__Web_View.py.i
+data/org.jrfonseca.pythonmonkey-examples/scripts/Find_System_Prints.py.i
+data/org.jrfonseca.pythonmonkey-examples/scripts/IO__Web_Sample.py.i
+data/org.jrfonseca.pythonmonkey-examples/scripts/IO__File_Sample.py.i
+data/org.jrfonseca.pythonmonkey/build.properties.i

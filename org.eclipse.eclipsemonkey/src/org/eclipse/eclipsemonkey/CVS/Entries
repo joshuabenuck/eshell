@@ -1,0 +1,17 @@
+/DOMDescriptor.java/1.2/Mon Mar  5 13:54:24 2007//
+/EclipseMonkeyPlugin.java/1.15/Fri Mar  2 21:47:18 2007//
+/IMonkeyScriptRunner.java/1.2/Mon Mar  5 13:54:24 2007//
+/IScriptStoreListener.java/1.3/Mon Mar  5 13:54:24 2007//
+/MenuRunMonkeyScript.java/1.7/Mon Mar  5 13:54:24 2007/-kk/
+/MonkeyClassLoader.java/1.3/Mon Mar  5 13:54:24 2007//
+/RunMonkeyException.java/1.4/Mon Mar  5 13:54:24 2007/-kk/
+/ScriptMetadata.java/1.22/Wed Jun  6 13:32:43 2007//
+/StoredScript.java/1.5/Mon Mar  5 13:54:24 2007//
+/Subscription.java/1.8/Mon Mar  5 13:54:24 2007/-kk/
+/UpdateMonkeyActionsResourceChangeListener.java/1.18/Wed Jun  6 13:32:43 2007//
+D/actions////
+D/dom////
+D/internal////
+D/language////
+D/tests////
+D/utils////
