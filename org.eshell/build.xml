@@ -1,0 +1,5 @@
+<project name="eshell" default="test">
+	<target name="test">
+		<echo message="test" file="c:\src\test"/>
+	</target>
+</project>
