@@ -31,6 +31,7 @@ import org.eclipse.core.runtime.IExtensionRegistry;
 import org.eclipse.core.runtime.InvalidRegistryObjectException;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.Platform;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.eclipsemonkey.language.IMonkeyLanguageFactory;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.ui.IStartup;
@@ -39,11 +40,13 @@ import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 
+import sun.org.mozilla.javascript.internal.Scriptable;
+
 /**
  * The main plugin class to be used in the desktop.
  */
 public class EclipseMonkeyPlugin extends AbstractUIPlugin implements IStartup {
-	
+    public static final String ID = "org.eclipse.eclipsemonkey";
 	/**
 	 * Marker indicating the start of an Eclipse Monkey script
 	 */
@@ -59,8 +62,8 @@ public class EclipseMonkeyPlugin extends AbstractUIPlugin implements IStartup {
 
 	private static Map<String,StoredScript> _scriptStore = new HashMap<String,StoredScript>();
 	private static Set<IScriptStoreListener> _storeListeners = new HashSet<IScriptStoreListener>();
-	private static Map _languageStore = new HashMap();
-	private static Map _scopeStore = new HashMap();
+	private static Map<String, IMonkeyLanguageFactory> _languageStore = new HashMap<String,IMonkeyLanguageFactory>();
+	private static Map<String,Scriptable> _scopeStore = new HashMap<String,Scriptable>();
 	
 	/**
 	 * 
@@ -74,7 +77,7 @@ public class EclipseMonkeyPlugin extends AbstractUIPlugin implements IStartup {
 	 * All loaded langagues
 	 * @return a map of loaded languages
 	 */
-	public Map getLanguageStore()
+	public Map<String,IMonkeyLanguageFactory> getLanguageStore()
 	{
 		return _languageStore;
 	}
@@ -88,10 +91,11 @@ public class EclipseMonkeyPlugin extends AbstractUIPlugin implements IStartup {
 	}
 
 	/**
+	 * TODO: Does this really belong here? Seems to tie us to javascript...
 	 * All loaded scopes
 	 * @return a map of loaded scopes
 	 */
-	public Map getScopeStore() {
+	public Map<String,Scriptable> getScopeStore() {
 		return _scopeStore;
 	}
 
@@ -205,6 +209,7 @@ public class EclipseMonkeyPlugin extends AbstractUIPlugin implements IStartup {
 	public void addScriptStoreListener( IScriptStoreListener listener ) {
 		_storeListeners.add(listener);
 	}
+	
 	/**
 	 * @param listener
 	 */
@@ -224,14 +229,12 @@ public class EclipseMonkeyPlugin extends AbstractUIPlugin implements IStartup {
 				for (StoredScript script : getDefault().getScriptStore().values()) 
 				{
 					String onLoadFunction = script.metadata.getOnLoadFunction();
-					if(onLoadFunction != null)
-					{
-						MenuRunMonkeyScript runner = new MenuRunMonkeyScript(script.scriptPath);
-						try {
-							runner.run(onLoadFunction, new Object[0]);
-						} catch (RunMonkeyException e) {
-							// Do nothing
-						}
+					if(onLoadFunction == null) continue;
+					MenuRunMonkeyScript runner = new MenuRunMonkeyScript(script.scriptPath);
+					try {
+						runner.run(onLoadFunction, new Object[0]);
+					} catch (RunMonkeyException e) {
+						// Do nothing
 					}
 				}
 			}
@@ -251,55 +254,50 @@ public class EclipseMonkeyPlugin extends AbstractUIPlugin implements IStartup {
 		IExtensionRegistry registry = Platform.getExtensionRegistry();
 		IExtensionPoint point = registry.getExtensionPoint("org.eclipse.eclipsemonkey.scriptpath");
 		
-		if (point != null) 
+		if (point == null) 
 		{
-			IExtension[] extensions = point.getExtensions();
+		    return new String[0];
+		}
+		    
+		IExtension[] extensions = point.getExtensions();
+		
+		for (IExtension extension : extensions) 
+		{
+			IConfigurationElement[] configurations = extension.getConfigurationElements();
 			
-			for (int i = 0; i < extensions.length; i++) 
+			for (IConfigurationElement element : configurations) 
 			{
-				IExtension extension = extensions[i];
-				IConfigurationElement[] configurations = extension.getConfigurationElements();
-				
-				for (int j = 0; j < configurations.length; j++) 
+				try 
 				{
-					IConfigurationElement element = configurations[j];
-					try 
-					{
-						IExtension declaring = element.getDeclaringExtension();
-						
-						String declaringPluginID = declaring
-								.getDeclaringPluginDescriptor()
-								.getUniqueIdentifier();
-						
+					IExtension declaring = element.getDeclaringExtension();
+					String declaringPluginID = declaring
+							.getDeclaringPluginDescriptor()
+							.getUniqueIdentifier();
+					
 //						String declaringPluginID = declaring.getNamespaceIdentifier();
+					String fullPath = element.getAttribute("directory");
+					Bundle b = Platform.getBundle(declaringPluginID);
+					URL url = Platform.find(b, new Path(fullPath));
+					if(url == null) continue;
+					
+					try {
+					
+						URL localUrl = Platform.asLocalURL(url);
 						
-						String fullPath = element.getAttribute("directory");
-
-						Bundle b = Platform.getBundle(declaringPluginID);
-						
-						URL url = Platform.find(b, new Path(fullPath));
-						
-						if(url != null)
+						if(localUrl != null)
 						{
-							try {
-							
-								URL localUrl = Platform.asLocalURL(url);
-								
-								if(localUrl != null)
-								{
-									String filename = localUrl.getFile();
-									list.add(filename);
-								}
-							} catch (IOException e) {
-								e.printStackTrace();
-							}
+							String filename = localUrl.getFile();
+							list.add(filename);
 						}
-					} 
-					catch (InvalidRegistryObjectException x) 
-					{
-						// ignore bad extensions
-					} 
-				}
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+				} 
+				catch (InvalidRegistryObjectException x) 
+				{
+					// ignore bad extensions
+				    getLog().log(new Status(Status.ERROR, ID, "Unable to load alternate scriptpath.", x));
+				} 
 			}
 		}
 
@@ -315,61 +313,70 @@ public class EclipseMonkeyPlugin extends AbstractUIPlugin implements IStartup {
 		IExtensionRegistry registry = Platform.getExtensionRegistry();
 		IExtensionPoint point = registry.getExtensionPoint("org.eclipse.eclipsemonkey.language");
 			
-		if (point != null) 
+		if (point == null) 
 		{
-			IExtension[] extensions = point.getExtensions();
+		    return getExtensions();
+		}
+		IExtension[] extensions = point.getExtensions();
+		
+		for (IExtension extension : extensions) 
+		{
+			IConfigurationElement[] configurations = extension.getConfigurationElements();
 			
-			for (int i = 0; i < extensions.length; i++) 
+			for (IConfigurationElement element : configurations) 
 			{
-				IExtension extension = extensions[i];
-				IConfigurationElement[] configurations = extension.getConfigurationElements();
-				
-				for (int j = 0; j < configurations.length; j++) 
-				{
-					IConfigurationElement element = configurations[j];
-					try 
-					{
-						IExtension declaring = element.getDeclaringExtension();
-						
-//						String declaring_plugin_id = declaring
-//								.getDeclaringPluginDescriptor()
-//								.getUniqueIdentifier();
-						
-						String declaringPluginID = declaring.getNamespaceIdentifier();
-						
-						String languageName = element.getAttribute("languageName");
-						String languageExtension = element.getAttribute("languageExtension");
-						String[] languageExtensions = null;
-
-						if(languageExtension != null)
-						{
-							languageExtensions = languageExtension.split("\\,");
-						
-							Object object = element.createExecutableExtension("class");
-
-							IMonkeyLanguageFactory langFactory = (IMonkeyLanguageFactory) object;
-
-							for (int k = 0; k < languageExtensions.length; k++) 
-							{
-								EclipseMonkeyPlugin.getDefault().getLanguageStore().put(languageExtensions[k], langFactory);
-							}
-
-							langFactory.init(declaringPluginID, languageName);
-						}
-					} 
-					catch (InvalidRegistryObjectException x) 
-					{
-						// ignore bad extensions
-					} 
-					catch (CoreException x) 
-					{
-						// ignore bad extensions
-					}
-				}
+				processElement(element);
 			}
 		}
 
-		String[] extensions = (String []) EclipseMonkeyPlugin.getDefault().getLanguageStore().keySet().toArray(new String[0]);
+		return getExtensions();
+	}
+
+    private void processElement(IConfigurationElement element) {
+        try 
+        {
+        	IExtension declaring = element.getDeclaringExtension();
+        	
+//						String declaring_plugin_id = declaring
+//								.getDeclaringPluginDescriptor()
+//								.getUniqueIdentifier();
+        	
+        	String declaringPluginID = declaring.getNamespaceIdentifier();
+        	
+        	String languageName = element.getAttribute("languageName");
+        	String languageExtension = element.getAttribute("languageExtension");
+        	String[] languageExtensions = null;
+
+        	if(languageExtension != null)
+        	{
+        		languageExtensions = languageExtension.split("\\,");
+        	
+        		Object object = element.createExecutableExtension("class");
+
+        		IMonkeyLanguageFactory langFactory = (IMonkeyLanguageFactory) object;
+
+        		for (String le : languageExtensions) 
+        		{
+        			EclipseMonkeyPlugin.getDefault().getLanguageStore().put(le, langFactory);
+        		}
+
+        		langFactory.init(declaringPluginID, languageName);
+        	}
+        } 
+        catch (InvalidRegistryObjectException x) 
+        {
+        	// ignore bad extensions
+            getLog().log(new Status(Status.ERROR, ID, "Unable to load language.", x));
+        } 
+        catch (CoreException x) 
+        {
+        	// ignore bad extensions
+            getLog().log(new Status(Status.ERROR, ID, "Unable to load language.", x));
+        }
+    }
+
+    private String[] getExtensions() {
+        String[] extensions = (String []) EclipseMonkeyPlugin.getDefault().getLanguageStore().keySet().toArray(new String[0]);
 		
 		if(extensions == null)
 		{
@@ -379,6 +386,5 @@ public class EclipseMonkeyPlugin extends AbstractUIPlugin implements IStartup {
 		{
 			return extensions;
 		}
-	}
-	
+    }
 }
