@@ -30,6 +30,7 @@ import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.Path;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.eclipsemonkey.actions.RecreateMonkeyMenuAction;
 import org.eclipse.eclipsemonkey.dom.Utilities;
 import org.eclipse.eclipsemonkey.language.IMonkeyLanguageFactory;
@@ -128,6 +129,7 @@ public class UpdateMonkeyActionsResourceChangeListener implements
 			event.getDelta().accept(visitor);
 		} catch (CoreException x) {
 			// log an error in the error log
+		    EclipseMonkeyPlugin.getDefault().getLog().log(new Status(Status.ERROR, EclipseMonkeyPlugin.ID, "Error processing resource delta.", x));
 		}
 		boolean anyMatches = ((Boolean) (changes[0])).booleanValue();
 		if (anyMatches) {
@@ -143,9 +145,11 @@ public class UpdateMonkeyActionsResourceChangeListener implements
 		} catch (CoreException x) {
 			store.metadata = new ScriptMetadata();
 			// log an error in the error log
+			EclipseMonkeyPlugin.getDefault().getLog().log(new Status(Status.ERROR, EclipseMonkeyPlugin.ID, "Unable to get script metadata.", x));
 		} catch (IOException x) {
 			store.metadata = new ScriptMetadata();
 			// log an error in the error log
+			EclipseMonkeyPlugin.getDefault().getLog().log(new Status(Status.ERROR, EclipseMonkeyPlugin.ID, "Unable to get script metadata.", x));
 		}
 		EclipseMonkeyPlugin.getDefault().addScript(name, store);
 	}

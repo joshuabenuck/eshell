@@ -47,31 +47,13 @@ public class PythonPlugin extends AbstractUIPlugin {
 	public void start(BundleContext context) throws Exception {
 		super.start(context);
 		this.context = context;
-		initPySystem();
 	}
 	
-	public void initPySystem()
+	public BundleContext getContext()
 	{
-	    Properties preProperties = System.getProperties();
-	    
-	    Properties postProperties = new Properties();
-	    postProperties.put("python.home",getPluginRootDir());
-	    
-	    PythonClassLoader classLoader = new PythonClassLoader();
-	    
-	    PySystemState.initialize(preProperties, postProperties, new String[0], classLoader);
-	    
-	    Bundle[] bundles = context.getBundles();
-	    for(int i = 0; i < bundles.length; ++i) {
-	        classLoader.addBundle(bundles[i]);
-	    }
+	    return context;
 	}
 	
-	public void shutdownPySystem()
-	{
-	    PySystemState.exit();
-	}
-
 	private String getPluginRootDir() {
         try {
         	Bundle bundle = getBundle();

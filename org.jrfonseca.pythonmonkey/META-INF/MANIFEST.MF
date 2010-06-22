@@ -27,12 +27,8 @@ Export-Package: org.jrfonseca.pythonmonkey;
    org.python.parser",
  org.python.core.adapter;uses:="org.python.core",
  org.python.modules;uses:="org.python.modules.sre,org.python.core",
- org.python.modules.sets;uses:="org.python.core",
  org.python.modules.sre;uses:="org.python.core",
  org.python.modules.time;uses:="org.python.core",
- org.python.parser;uses:="org.python.parser.ast",
- org.python.parser.ast;uses:="org.python.parser",
- org.python.rmi,
  org.python.util;
   uses:="javax.servlet,
    jline,

@@ -270,11 +270,11 @@ public class EclipseMonkeyPlugin extends AbstractUIPlugin implements IStartup {
 				try 
 				{
 					IExtension declaring = element.getDeclaringExtension();
-					String declaringPluginID = declaring
-							.getDeclaringPluginDescriptor()
-							.getUniqueIdentifier();
+//					String declaringPluginID = declaring
+//							.getDeclaringPluginDescriptor()
+//							.getUniqueIdentifier();
 					
-//						String declaringPluginID = declaring.getNamespaceIdentifier();
+					String declaringPluginID = declaring.getNamespaceIdentifier();
 					String fullPath = element.getAttribute("directory");
 					Bundle b = Platform.getBundle(declaringPluginID);
 					URL url = Platform.find(b, new Path(fullPath));

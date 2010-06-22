@@ -17,6 +17,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Properties;
 
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IConfigurationElement;
@@ -40,6 +41,8 @@ import org.eclipse.ui.console.ConsolePlugin;
 import org.eclipse.ui.console.IConsole;
 import org.eclipse.ui.console.MessageConsole;
 import org.eclipse.ui.console.MessageConsoleStream;
+import org.osgi.framework.Bundle;
+import org.python.core.Py;
 import org.python.core.PyException;
 import org.python.core.PySystemState;
 import org.python.util.PythonInterpreter;
@@ -100,6 +103,7 @@ public class PythonRunner implements IMonkeyScriptRunner {
 
 			PythonInterpreter interp = null;
 			try {
+			    getSystemState();
 				interp = new PythonInterpreter();
 
 				defineStandardGlobalVariables(interp);
@@ -112,11 +116,16 @@ public class PythonRunner implements IMonkeyScriptRunner {
 				for (String path : scriptStore.keySet())
 				{
 				    if (!path.endsWith(".py")) continue;
-				    path = new File(path).getParent();
+				    path = new File(path).getParent().replace("\\", "\\\\");
 				    interp.exec("if \"" + path + "\" not in sys.path:\n" +
 				                "\tsys.path.append(\"" + path + "\")");
 				}
 				interp.execfile(new FileInputStream(path.toFile()), path.toPortableString());
+			}
+			catch(Exception e)
+			{
+			    e.printStackTrace();
+			    error(e, this.path.toString(), e.toString());
 			}
 			finally {
 			    if (interp != null) interp.cleanup();
@@ -126,13 +135,29 @@ public class PythonRunner implements IMonkeyScriptRunner {
 		catch (PyException x) {
 			error(x, this.path.toString(), x.toString());
 		}
-		catch (IOException x)
-		{
-			error(x, this.path.toString(), x.toString());
-		}
+//		catch (IOException x)
+//		{
+//			error(x, this.path.toString(), x.toString());
+//		}
 		
 		return result;
 	}
+
+    private void getSystemState() {
+//        postProperties.put("python.home",getPluginRootDir());
+        
+        PythonClassLoader classLoader = new PythonClassLoader();
+        
+        PySystemState state = new PySystemState();
+        state.setClassLoader(classLoader);
+//        PySystemState.initialize(preProperties, postProperties, new String[0], classLoader);
+        
+        Bundle[] bundles = PythonPlugin.getDefault().getContext().getBundles();
+        for(int i = 0; i < bundles.length; ++i) {
+            classLoader.addBundle(bundles[i]);
+        }
+        Py.setSystemState(state);
+    }
 
 	private void defineStandardGlobalVariables(PythonInterpreter interp) {
 		interp.set("window", window);
@@ -145,38 +170,34 @@ public class PythonRunner implements IMonkeyScriptRunner {
 		IExtensionRegistry registry = Platform.getExtensionRegistry();
 		IExtensionPoint point = registry
 				.getExtensionPoint("org.eclipse.eclipsemonkey.dom");
-		if (point != null) {
-			IExtension[] extensions = point.getExtensions();
-			for (int i = 0; i < extensions.length; i++) {
-				IExtension extension = extensions[i];
-				IConfigurationElement[] configurations = extension
-						.getConfigurationElements();
-				for (int j = 0; j < configurations.length; j++) {
-					IConfigurationElement element = configurations[j];
-					try {
-						IExtension declaring = element.getDeclaringExtension();
-
-						String declaring_plugin_id = declaring
-								.getDeclaringPluginDescriptor()
-								.getUniqueIdentifier();
-//						String declaring_plugin_id = declaring.getNamespaceIdentifier();
+		if (point == null) return;
+		IExtension[] extensions = point.getExtensions();
+		for (IExtension extension : extensions) {
+			IConfigurationElement[] configurations = extension
+					.getConfigurationElements();
+			for (IConfigurationElement element : configurations) {
+				try {
+					IExtension declaring = element.getDeclaringExtension();
+//					String declaring_plugin_id = declaring
+//							.getDeclaringPluginDescriptor()
+//							.getUniqueIdentifier();
+					String declaring_plugin_id = declaring.getNamespaceIdentifier();
+					
+					if (metadata.containsDOM_by_plugin(declaring_plugin_id)) {
+						String variableName = element
+								.getAttribute("variableName");
+						Object object = element
+								.createExecutableExtension("class");
+						IMonkeyDOMFactory factory = (IMonkeyDOMFactory) object;
 						
-						if (metadata.containsDOM_by_plugin(declaring_plugin_id)) {
-							String variableName = element
-									.getAttribute("variableName");
-							Object object = element
-									.createExecutableExtension("class");
-							IMonkeyDOMFactory factory = (IMonkeyDOMFactory) object;
-							
-							Object rootObject = factory.getDOMroot();
-							
-							interp.set(variableName, rootObject);
-						}
-					} catch (InvalidRegistryObjectException x) {
-						// ignore bad extensions
-					} catch (CoreException x) {
-						// ignore bad extensions
+						Object rootObject = factory.getDOMroot();
+						
+						interp.set(variableName, rootObject);
 					}
+				} catch (InvalidRegistryObjectException x) {
+					// ignore bad extensions
+				} catch (CoreException x) {
+					// ignore bad extensions
 				}
 			}
 		}

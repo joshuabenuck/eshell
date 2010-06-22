@@ -31,7 +31,8 @@
    
    <extension
          point="org.eclipse.ui.startup">
-      <startup/>
+      <startup
+            class="org.eclipse.eclipsemonkey.EclipseMonkeyPlugin"/>
    </extension>
    <extension
          point="org.eclipse.ui.popupMenus">
