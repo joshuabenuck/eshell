@@ -1,3 +1,9 @@
+def addBundles(names)
+  names.each do |name|
+    addBundle(name)
+  end
+end
+
 def addBundle(name)
   bundle = $bundles[name]
   if bundle == nil
@@ -34,7 +40,7 @@ end
 def findBuildFiles(project)
     buildFiles = []
     project.getNonJavaResources().each do |f|
-        if f.name.find("build.xml") != -1
+        if f.name.index("build.xml") != nil
             buildFiles.push(f)
         end
     end
