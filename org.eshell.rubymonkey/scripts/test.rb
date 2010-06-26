@@ -26,7 +26,9 @@ java_import org.eclipse.ant.internal.ui.launchConfigurations.AntLaunchShortcut
 java_import org.eclipse.debug.core.DebugPlugin
 java_import org.eclipse.debug.core.ILaunchManager
 java_import org.eclipse.debug.core.ILaunchesListener2
+java_import java.util.concurrent.CountDownLatch
 
+#puts ResourcesPlugin.getWorkspace().getRoot().findMember("${workspace_loc:/eshell/build.xml}")
 project = getProject("eshell")
 buildFiles = findBuildFiles(project)
 #runner = AntRunner.new()
@@ -40,21 +42,56 @@ buildFiles = findBuildFiles(project)
 
 class AntListener
   include ILaunchesListener2
+  def initialize(buildFile)
+    @buildFile = buildFile
+    @complete = CountDownLatch.new(1)
+  end
+  def complete
+    return @complete
+  end
+  def launchesAdded(launches) end
+  def launchesChanged(launches) end
+  def launchesRemoved(launches) end
   def launchesTerminated(launches)
     begin
-      launches.each do |l|
-        puts l.processes[0].methods.sort
-      end
+      launches.each { |l|
+        loc = l.launchConfiguration.attributes[IExternalToolConstants.ATTR_LOCATION]
+        file = getFileFromLocation(loc)
+        if file == @buildFile
+          @complete.countDown
+        end
+      }
+    rescue Exception => e
+      alert(e.message + "\n" + e.backtrace.join("\n"))
     ensure
       DebugPlugin.default.launchManager.removeLaunchListener(self)
     end
   end
 end
 
-antListener = AntListener.new()
-begin
-  DebugPlugin.default.launchManager.addLaunchListener(antListener)
-  AntLaunchShortcut.new().launch(buildFiles[0].fullPath, project.getProject(), ILaunchManager.RUN_MODE, "test")
-rescue
-  DebugPlugin.default.launchManager.removeLaunchListener(antListener)
+class Runner < java.lang.Thread
+  include java.lang.Runnable
+  def initialize(&block)
+    @logic = block
+  end
+  def run()
+    @logic.call()
+  end
 end
+
+def run(&block)
+  Runner.new(&block).start()
+end
+
+# Rework into runAntScript(path, target)
+run {
+  antListener = AntListener.new(buildFiles[0])
+  begin
+    DebugPlugin.default.launchManager.addLaunchListener(antListener)
+    AntLaunchShortcut.new().launch(buildFiles[0].fullPath, project.getProject(), ILaunchManager.RUN_MODE, "test")
+    antListener.complete.await
+    alert "done"
+  rescue
+    DebugPlugin.default.launchManager.removeLaunchListener(antListener)
+  end
+}

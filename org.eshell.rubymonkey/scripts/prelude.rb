@@ -12,16 +12,34 @@ def addBundle(name)
   $loader.addBundle(bundle)
 end
 require 'java'
-addBundle("org.eclipse.jface")
-addBundle("org.eclipse.jdt.core")
-addBundle("org.eclipse.core.resources")
+addBundles(["org.eclipse.jface",
+  "org.eclipse.core.runtime",
+  "org.eclipse.core.variables",
+  "org.eclipse.core.resources",
+  "org.eclipse.ui.externaltools",
+  "org.eclipse.jdt.core",
+  "org.eclipse.ant.core",
+  "org.eclipse.ant.ui",
+  "org.eclipse.swt"])
 java_import org.eclipse.jface.dialogs.MessageDialog
+java_import org.eclipse.swt.widgets.Display
+java_import java.lang.Runnable
+
+class ShowDialog
+  include Runnable
+  def initialize(message)
+    @message = message
+  end
+  def run()
+      MessageDialog.openInformation(
+      $window.getShell(),
+      "Monkey Dialog",
+      @message)
+  end
+end
 
 def alert(message)
-    MessageDialog.openInformation(     
-            $window.getShell(),     
-            "Monkey Dialog", 
-            message)
+  Display.default.syncExec(ShowDialog.new(message))
 end
 
 # Project / build file support
@@ -45,4 +63,26 @@ def findBuildFiles(project)
         end
     end
     return buildFiles
+end
+
+java_import org.eclipse.core.variables.VariablesPlugin
+java_import org.eclipse.ui.externaltools.internal.model.IExternalToolConstants
+java_import org.eclipse.ant.internal.ui.AntUtil
+java_import org.eclipse.core.runtime.CoreException
+
+def getFileFromLocation(location)
+  # Taken from AntMainTab.getIFile()
+  manager = VariablesPlugin.default.stringVariableManager
+  begin
+    #location = configuration.getAttribute(IExternalToolConstants.ATTR_LOCATION, "default")
+    if location != "default"
+       expandedLocation = manager.performStringSubstitution(location)
+       if expandedLocation != nil
+         file = AntUtil.getFileForLocation(expandedLocation, nil)
+         return file
+       end
+    end
+  rescue CoreException
+  end
+  return nil
 end
