@@ -12,14 +12,11 @@
 package org.eshell.rubymonkey;
 
 import java.net.URL;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.Platform;
-import org.eclipse.eclipsemonkey.EclipseMonkeyPlugin;
-import org.eclipse.eclipsemonkey.IScriptStoreListener;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
@@ -30,6 +27,7 @@ import org.osgi.framework.BundleContext;
 public class RubyPlugin extends AbstractUIPlugin {
     private BundleContext context = null;
     private static RubyPlugin plugin = null;
+    private Map<String, String> state = new ConcurrentHashMap<String, String>();
     
 	/**
 	 * The constructor
@@ -51,6 +49,11 @@ public class RubyPlugin extends AbstractUIPlugin {
 	public BundleContext getContext()
 	{
 	    return context;
+	}
+	
+	public Map<String, String> getState()
+	{
+	    return state;
 	}
 	
 	private String getPluginRootDir() {

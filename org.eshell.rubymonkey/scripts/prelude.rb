@@ -41,9 +41,14 @@ class Runner < java.lang.Thread
 end
 
 def run(&block)
-  r = Runner.new(&block)
-  r.start()
-  return r.result
+  begin
+    r = Runner.new(&block)
+    r.start()
+    return r.result
+  rescue Exception => e
+    alert(e.message + "\n" + e.backtrace.join("\n"))
+  end
+  return nil
 end
 
 def _run(&block) end
