@@ -73,7 +73,7 @@ class BuildFileShell
   
   def execute(target)
     return nil if complete(target).size == 0
-    TargetCmd.new(@project, @file, target).execute
+    return TargetCmd.new(@project, @file, target).execute
   end
 end
 
@@ -88,6 +88,8 @@ class AntShell
   end
   
   def execute(line)
+    return nil if line.index("ant ") != 0
+    line = line.split(" ")[1]
     files = @buildFiles.select do |f|
       f.to_s.index(line) != nil
     end
@@ -97,26 +99,56 @@ class AntShell
   end
 end
 
+addBundle("org.eclipse.wst.server.core")
+java_import org.eclipse.wst.server.core.ServerCore
+class ServerShell
+  def initialize(project)
+    @project = project
+  end
+  
+  def execute(cmd)
+    return nil if cmd.index("server ") != 0
+    cmd = cmd.split(" ")[1]
+    return start() if cmd == "start"
+    return stop() if cmd == "stop"
+    return nil
+  end
+  
+  def start()
+    location = @project.project.rawLocation.to_s
+    matches = ServerCore.servers.filter { |s| s.runtime.location.index(location) == 0 }
+    raise Exception.new("Too many servers match the active project: " + matches.to_s) if matches > 1
+    raise Exception.new("No servers match the active project: " + location) if matches == 0
+    matches[0].synchronousStart
+    return true
+  end
+  
+  def stop()
+    location = @project.project.rawLocation.to_s
+    matches = ServerCore.servers.filter { |s| s.runtime.location.index(location) == 0 }
+    raise Exception.new("Too many servers match the active project: " + matches.to_s) if matches > 1
+    raise Exception.new("No servers match the active project: " + location) if matches == 0
+    matches[0].synchronousStop
+    return true
+  end
+end
+
 # Will be use as the root shell for most commands.
 class ProjectShell
   def initialize(project)
     @project = project
-    @cmds = {
-      "ant" => AntShell.new(project)
-    }
+    @cmds = [
+      AntShell.new(project),
+      ServerShell.new(project)
+    ]
   end
   
   def execute(cmd)
-    return @cmds[cmd]
-  end
-end
-
-class CpShell
-  def execute(name)
-    project = getProject(name)
-    return nil if project == nil
-    return nil if !project.respond_to?("getNonJavaResources")
-    return ProjectShell.new(project)
+    @cmds.each { |c|
+      result = c.execute(cmd)
+      return result if result != nil
+    }
+    return nil
   end
 end
 
@@ -135,36 +167,36 @@ class Eshell
       @shells = @shells | shells and @path += path + " " if shells != nil
     }
     @path = @path.strip
-    alert(@path)
   end
   
   def runStmt(stmt, shells)
     raise "No such cmd: " + stmt if shells.length == 0
     lastWasShell = false
-    parts = stmt.split(" ")
-    parts.each { |cmd|
-      shell = shells.last
-      lastWasShell = false
-      result = shell.execute(cmd)
-      if result == nil
-        shells.pop
-        (ignored, tmp) = runStmt(cmd, shells)
-        tmp = shells[0]
-      end
-      if result.class.name =~ /Shell$/
-        shells.push(result)
-        lastWasShell = true
-      else break
-      end
-    }
-    return [stmt, shells] if lastWasShell
+    shell = shells.last
+    resultWasShell = false
+    result = shell.execute(stmt)
+    if result == nil
+      (ignored, tmp) = runStmt(stmt, shells)
+      result = tmp == nil ? nil : tmp[0]
+    end
+    if result.class.name =~ /Shell$/
+      shells.push(result)
+      lastWasShell = true
+    end
+    return [stmt, shells] if resultWasShell
     return [nil, nil]
   end
   
+  def cp(name)
+    project = getProject(name)
+    return nil if project == nil
+    return nil if !project.respond_to?("getNonJavaResources")
+    return ProjectShell.new(project)
+  end
+  
   def execute(cmd)
-    return CpShell.new() if cmd == "cp"
+    return cp(cmd.split(" ")[1]) if cmd.index("cp ")
     return list() if cmd == "ls"
-    return CpShell.new().execute("ls") if cmd == "lp"
     return nil
   end
 end
@@ -176,9 +208,11 @@ end
 # SubShells cannot be the current shell and can only be used absolutely?
 # when to search parent shells?
 
+#Eshell.new().runCmd("cp eshell; server start")
+
 run {
 begin
-  Eshell.new().runCmd("cp eshell ant eshell")
+  Eshell.new().runCmd("cp eshell; ant eshell; cp org.eclipse.dash.doms; ant build.xml; init")
   Eshell.new().runCmd("cp org.eclipse.dash.doms; ant build.xml")
 rescue Exception => e
   alert(e.message + "\n" + e.backtrace.join("\n"))
