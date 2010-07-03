@@ -30,29 +30,6 @@ java_import org.eclipse.ui.PlatformUI
 #runner.run()
 
 # Must not be run in UI thread!
-class TargetCmd
-  def initialize(project, file, target)
-    @project = project
-    @file = file
-    @target = target
-  end
-  
-  def execute()
-    antListener = AntListener.new(@file)
-    begin
-      DebugPlugin.default.launchManager.addLaunchListener(antListener)
-      AntLaunchShortcut.new().launch(@file.fullPath, 
-        @project.getProject(), 
-        ILaunchManager.RUN_MODE, @target)
-      antListener.complete.await
-      return true
-    rescue Exception => e
-      DebugPlugin.default.launchManager.removeLaunchListener(antListener)
-      alert(e.message + "\n" + e.backtrace.join("\n"))
-    end
-  end
-end
-
 class BuildFileShell
   def initialize(project, file)
     @project = project
@@ -71,51 +48,56 @@ class BuildFileShell
     end
   end
   
-  def execute(target)
+  def execute(env, target)
     return nil if complete(target).size == 0
-    return TargetCmd.new(@project, @file, target).execute
+    antListener = AntListener.new(@file)
+    begin
+      DebugPlugin.default.launchManager.addLaunchListener(antListener)
+      AntLaunchShortcut.new().launch(@file.fullPath, 
+        @project.getProject(), 
+        ILaunchManager.RUN_MODE, target)
+      antListener.complete.await
+      return true
+    rescue Exception => e
+      DebugPlugin.default.launchManager.removeLaunchListener(antListener)
+      alert(e.message + "\n" + e.backtrace.join("\n"))
+    end
   end
 end
 
 class AntShell
-  def initialize(project)
-    @project = project
-    @buildFiles = findBuildFiles(project)
-  end
-  
   def complete()
     @buildFiles.collect { |b| b }
   end
   
-  def execute(line)
+  def execute(env, line)
     return nil if line.index("ant ") != 0
+    project = env["project"]
+    @buildFiles = findBuildFiles(project)
     line = line.split(" ")[1]
     files = @buildFiles.select do |f|
       f.to_s.index(line) != nil
     end
     raise Exception.new("Too many matches: " + files) if files.size() > 1
     return nil if files.size() == 0
-    return BuildFileShell.new(@project, files[0])
+    return BuildFileShell.new(project, files[0])
   end
 end
 
 addBundle("org.eclipse.wst.server.core")
 java_import org.eclipse.wst.server.core.ServerCore
 class ServerShell
-  def initialize(project)
-    @project = project
-  end
-  
-  def execute(cmd)
+  def execute(env, cmd)
     return nil if cmd.index("server ") != 0
+    project = env["project"]
     cmd = cmd.split(" ")[1]
-    return start() if cmd == "start"
-    return stop() if cmd == "stop"
+    return start(project) if cmd == "start"
+    return stop(project) if cmd == "stop"
     return nil
   end
   
-  def start()
-    location = @project.project.rawLocation.to_s
+  def start(project)
+    location = project.project.rawLocation.to_s
     matches = ServerCore.servers.filter { |s| s.runtime.location.index(location) == 0 }
     raise Exception.new("Too many servers match the active project: " + matches.to_s) if matches > 1
     raise Exception.new("No servers match the active project: " + location) if matches == 0
@@ -123,32 +105,13 @@ class ServerShell
     return true
   end
   
-  def stop()
-    location = @project.project.rawLocation.to_s
+  def stop(project)
+    location = project.project.rawLocation.to_s
     matches = ServerCore.servers.filter { |s| s.runtime.location.index(location) == 0 }
     raise Exception.new("Too many servers match the active project: " + matches.to_s) if matches > 1
     raise Exception.new("No servers match the active project: " + location) if matches == 0
     matches[0].synchronousStop
     return true
-  end
-end
-
-# Will be use as the root shell for most commands.
-class ProjectShell
-  def initialize(project)
-    @project = project
-    @cmds = [
-      AntShell.new(project),
-      ServerShell.new(project)
-    ]
-  end
-  
-  def execute(cmd)
-    @cmds.each { |c|
-      result = c.execute(cmd)
-      return result if result != nil
-    }
-    return nil
   end
 end
 
@@ -159,6 +122,8 @@ class Eshell
     @shell = self
     @shells = [self]
     @path = ""
+    @env = {}
+    #@env["project"] = getProject($state["project"]) if $state["project"] != nil
   end
 
   def runCmd(cmdLine)
@@ -174,8 +139,9 @@ class Eshell
     lastWasShell = false
     shell = shells.last
     resultWasShell = false
-    result = shell.execute(stmt)
+    result = shell.execute(@env, stmt)
     if result == nil
+      shells.pop
       (ignored, tmp) = runStmt(stmt, shells)
       result = tmp == nil ? nil : tmp[0]
     end
@@ -187,16 +153,23 @@ class Eshell
     return [nil, nil]
   end
   
-  def cp(name)
+  def cp(env, cmd)
+    return nil unless cmd.index("cp ") == 0
+    name = cmd.split(" ")[1]
     project = getProject(name)
-    return nil if project == nil
-    return nil if !project.respond_to?("getNonJavaResources")
-    return ProjectShell.new(project)
+    raise "Unable to find project named: " + name if project == nil 
+    raise "Non-Java project: " + name if !project.respond_to?("getNonJavaResources")
+    env["project"] = project
+    return true
   end
   
-  def execute(cmd)
-    return cp(cmd.split(" ")[1]) if cmd.index("cp ")
-    return list() if cmd == "ls"
+  def execute(env, cmd)
+    result = cp(env, cmd)
+    return result unless result == nil
+    [AntShell.new, ServerShell.new].each { |s|
+      result = s.execute(env, cmd)
+      return result unless result == nil
+    }
     return nil
   end
 end
