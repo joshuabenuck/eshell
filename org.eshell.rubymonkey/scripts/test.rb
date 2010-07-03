@@ -84,33 +84,37 @@ class AntShell
   end
 end
 
-addBundle("org.eclipse.wst.server.core")
+addBundles(["org.eclipse.wst.server.core",
+            "org.eclipse.debug.core"])
 java_import org.eclipse.wst.server.core.ServerCore
+java_import org.eclipse.debug.core.ILaunchManager
 class ServerShell
   def execute(env, cmd)
     return nil if cmd.index("server ") != 0
     project = env["project"]
-    cmd = cmd.split(" ")[1]
-    return start(project) if cmd == "start"
-    return stop(project) if cmd == "stop"
+    parts = cmd.split(" ")
+    action = parts[1]
+    server = nil; server = parts[2] if parts.length > 2
+    return start(project, server) if action == "start"
+    return stop(project, server) if action == "stop"
     return nil
   end
   
-  def start(project)
-    location = project.project.rawLocation.to_s
-    matches = ServerCore.servers.filter { |s| s.runtime.location.index(location) == 0 }
-    raise Exception.new("Too many servers match the active project: " + matches.to_s) if matches > 1
-    raise Exception.new("No servers match the active project: " + location) if matches == 0
-    matches[0].synchronousStart
+  def start(project, server = nil)
+    location = project == nil ? "unknown" : project.project.rawLocation.to_s
+    matches = ServerCore.servers.select { |s| s.runtime.location.to_s.index(location) == 0 || s.name == server}
+    raise Exception.new("Too many servers match the active project: " + matches.to_s) if matches.length > 1
+    raise Exception.new("No servers match the active project: " + location) if matches.length == 0
+    matches[0].synchronousStart(ILaunchManager.DEBUG_MODE, nil)
     return true
   end
   
-  def stop(project)
-    location = project.project.rawLocation.to_s
-    matches = ServerCore.servers.filter { |s| s.runtime.location.index(location) == 0 }
-    raise Exception.new("Too many servers match the active project: " + matches.to_s) if matches > 1
-    raise Exception.new("No servers match the active project: " + location) if matches == 0
-    matches[0].synchronousStop
+  def stop(project, server = nil)
+    location = project == nil ? "unknown" : project.project.rawLocation.to_s
+    matches = ServerCore.servers.select { |s| s.runtime.location.to_s.index(location) == 0 || s.name == server }
+    raise Exception.new("Too many servers match the active project: " + matches.to_s) if matches.length > 1
+    raise Exception.new("No servers match the active project: " + location) if matches.length == 0
+    matches[0].synchronousStop(false)
     return true
   end
 end
@@ -123,8 +127,19 @@ class Eshell
     @shells = [self]
     @path = ""
     @env = {}
-    #@env["project"] = getProject($state["project"]) if $state["project"] != nil
+    @env["project"] = getProject($state["project"]) if $state["project"] != nil
+    @env["path"] = $state["path"] unless $state["path"] == nil
+    begin
+      runCmd(@env["path"]) unless @env["path"] == nil
+    rescue Exception => e
+      @env["path"] = ""
+      $state["path"] = ""
+      @shells = [self]
+    end
   end
+  
+  def env() return @env; end
+  def path() return @path; end
 
   def runCmd(cmdLine)
     cmdLine.split(";").each { |stmt|
@@ -132,6 +147,8 @@ class Eshell
       @shells = @shells | shells and @path += path + " " if shells != nil
     }
     @path = @path.strip
+    @env["path"] = @path
+    $state["path"] = @path
   end
   
   def runStmt(stmt, shells)
@@ -147,7 +164,7 @@ class Eshell
     end
     if result.class.name =~ /Shell$/
       shells.push(result)
-      lastWasShell = true
+      resultWasShell = true
     end
     return [stmt, shells] if resultWasShell
     return [nil, nil]
@@ -160,6 +177,7 @@ class Eshell
     raise "Unable to find project named: " + name if project == nil 
     raise "Non-Java project: " + name if !project.respond_to?("getNonJavaResources")
     env["project"] = project
+    $state["project"] = name
     return true
   end
   
@@ -183,7 +201,7 @@ end
 
 #Eshell.new().runCmd("cp eshell; server start")
 
-run {
+_run {
 begin
   Eshell.new().runCmd("cp eshell; ant eshell; cp org.eclipse.dash.doms; ant build.xml; init")
   Eshell.new().runCmd("cp org.eclipse.dash.doms; ant build.xml")
@@ -192,11 +210,14 @@ rescue Exception => e
 end
 }
 
-_run {
-  cmd = prompt("project: eshell\tshell: ant")
-  return if cmd == nil
+run {
   begin
-    Eshell.new().runCmd(cmd)
+    eshell = Eshell.new
+    projectName = eshell.env["project"] == nil ? "" : eshell.env["project"].project.description.name.to_s
+    cmd = prompt("project: " + projectName + 
+                 "\tshell: " + eshell.path)
+    return if cmd == nil
+    eshell.runCmd(cmd)
   rescue Exception => e
     alert(e.message + "\n" + e.backtrace.join("\n"))
   end

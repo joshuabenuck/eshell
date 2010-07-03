@@ -130,6 +130,7 @@ public class RubyRunner implements IMonkeyScriptRunner {
 		            allBundles.put(bundle.getSymbolicName(), bundle);
 		        }
 		        interp.put("$bundles", allBundles);
+		        interp.put("$state", RubyPlugin.getDefault().getState());
 				defineStandardGlobalVariables(interp);
 				defineExtensionGlobalVariables(interp, storedScript.metadata);
 				interp.runScriptlet(new FileInputStream(path.toFile()), path.toPortableString());
