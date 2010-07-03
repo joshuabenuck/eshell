@@ -143,7 +143,7 @@ class Eshell
 
   def runCmd(cmdLine)
     cmdLine.split(";").each { |stmt|
-      (path, shells) = runStmt(stmt.strip, @shells)
+      (path, shells) = runStmt(stmt.strip, @shells.clone)
       @shells = @shells | shells and @path += path + " " if shells != nil
     }
     @path = @path.strip
@@ -153,7 +153,6 @@ class Eshell
   
   def runStmt(stmt, shells)
     raise "No such cmd: " + stmt if shells.length == 0
-    lastWasShell = false
     shell = shells.last
     resultWasShell = false
     result = shell.execute(@env, stmt)
@@ -162,6 +161,7 @@ class Eshell
       (ignored, tmp) = runStmt(stmt, shells)
       result = tmp == nil ? nil : tmp[0]
     end
+    #alert(stmt + "\r" + shell.class.name + "\r" + result.class.name)
     if result.class.name =~ /Shell$/
       shells.push(result)
       resultWasShell = true
