@@ -3,6 +3,7 @@
 
 require 'java'
 require 'prelude'
+require 'bz'
 addBundles(
   ["org.eclipse.ui.console",
    "org.eclipse.ui",
@@ -101,6 +102,39 @@ class ServerShell
   end
 end
 
+class Environment
+  def initialize()
+    @props = {}
+  end
+  
+  def restore()
+    self["project"] = getProject($state["project"]) if $state["project"] != nil
+    self["path"] = $state["path"] unless $state["path"] == nil
+  end
+  
+  def project()
+    @props["project"]
+  end
+  
+  def [](key)
+    return @props[key]
+  end
+  
+  def []=(key, value)
+    @props[key] = value
+  end
+end
+
+class EnvProp
+  def name() end
+    
+  def saveState()
+  end
+  
+  def restoreState()
+  end
+end
+
 # Keep track of current path and rerun it to restore state.
 # This allows us to not store ruby objects in the plugin's state.
 class Eshell
@@ -165,7 +199,11 @@ class Eshell
   def execute(env, cmd)
     result = cp(env, cmd)
     return result unless result == nil
-    [AntShell.new, ServerShell.new].each { |s|
+    [
+      AntShell.new,
+      ServerShell.new,
+      BzCmd.new
+    ].each { |s|
       result = s.execute(env, cmd)
       return result unless result == nil
     }
