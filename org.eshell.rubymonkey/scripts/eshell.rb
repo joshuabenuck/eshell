@@ -4,6 +4,7 @@
 require 'java'
 require 'prelude'
 require 'bz'
+require 'dupKeys'
 addBundles(
   ["org.eclipse.ui.console",
    "org.eclipse.ui",
@@ -202,7 +203,8 @@ class Eshell
     [
       AntShell.new,
       ServerShell.new,
-      BzCmd.new
+      BzCmd.new,
+      DupKeysCmd.new
     ].each { |s|
       result = s.execute(env, cmd)
       return result unless result == nil
