@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<site>
+   <description url="http://joshuabenuck.github.com/eshell/">
+      eshell: automation tools for eclipse
+   </description>
+   <feature url="features/org.eshell_1.0.1.jar" id="org.eshell" version="1.0.1">
+      <category name="eshell Eclipse Monkey"/>
+   </feature>
+   <category-def name="eshell Eclipse Monkey" label="eshell Eclipse Monkey"/>
+</site>
