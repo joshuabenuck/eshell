@@ -103,51 +103,36 @@ class ServerShell
   end
 end
 
-class PathVar
-  def name()
-    return "path"
+class Environment
+  def initialize()
+    @props = {}
   end
   
-  def convert(value)
-    return value
+  def restore()
+    self["project"] = getProject($state["project"]) if $state["project"] != nil
+    self["path"] = $state["path"] unless $state["path"] == nil
+  end
+  
+  def project()
+    @props["project"]
+  end
+  
+  def [](key)
+    return @props[key]
+  end
+  
+  def []=(key, value)
+    @props[key] = value
   end
 end
 
-class ProjectVar
-  def name()
-    return "project"
+class EnvProp
+  def name() end
+    
+  def saveState()
   end
   
-  def convert(value)
-    proj = getProject(value)
-    raise "Unknown project: " + value if proj == nil
-    return proj
-  end
-end
-
-class SetCmd
-  @@vars = {}
-  def self.register(setVar)
-    @@vars[setVar.name] = setVar
-  end
-  
-  def execute(env, cmd)
-    return nil unless cmd.index("set ") == 0
-    parts = cmd.split(" ")
-    parts.shift; name = parts.shift
-    value = parts.shift
-    while parts.length > 0
-      value += " #{parts.shift}"
-    end
-    if value == nil
-      $state.remove(name)
-      return true
-    end 
-    var = @@vars[name]
-    raise "Unknown environment variable: " + name if var == nil
-    env[name] = var.convert(value)
-    $state[name] = value
-    return true
+  def restoreState()
   end
 end
 
@@ -155,20 +140,17 @@ end
 # This allows us to not store ruby objects in the plugin's state.
 class Eshell
   def initialize()
-    SetCmd.register(ProjectVar.new)
-    SetCmd.register(BzUrlVar.new)
-    SetCmd.register(PathVar.new)
+    @shell = self
     @shells = [self]
     @path = ""
     @env = {}
-    #$state.keys.each {|k| $state.remove(k) }
-  $state.keys.each {|k| runStmt("set #{k} #{$state[k]}", [self]) }
-    #@env["project"] = getProject($state["project"]) if $state["project"] != nil
-    #@env["path"] = $state["path"] unless $state["path"] == nil
+    @env["project"] = getProject($state["project"]) if $state["project"] != nil
+    @env["path"] = $state["path"] unless $state["path"] == nil
     begin
       runCmd(@env["path"]) unless @env["path"] == nil
     rescue Exception => e
-      @env["path"] = $state["path"] = ""
+      @env["path"] = ""
+      $state["path"] = ""
       @shells = [self]
     end
   end
@@ -181,7 +163,9 @@ class Eshell
       (path, shells) = runStmt(stmt.strip, @shells.clone)
       @shells = @shells | shells and @path += path + " " if shells != nil
     }
-    @env["path"] = $state["path"] = @path = @path.strip
+    @path = @path.strip
+    @env["path"] = @path
+    $state["path"] = @path
   end
   
   def runStmt(stmt, shells)
@@ -217,7 +201,6 @@ class Eshell
     result = cp(env, cmd)
     return result unless result == nil
     [
-      SetCmd.new,
       AntShell.new,
       ServerShell.new,
       BzCmd.new,
