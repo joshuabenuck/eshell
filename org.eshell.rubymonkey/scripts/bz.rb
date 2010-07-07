@@ -6,7 +6,16 @@ addBundles([
   "org.eclipse.ui"
 ])
 
-$state["bz_url"] = "https://bugs.eclipse.org/bugs/"
+#$state["bz_url"] = "https://bugs.eclipse.org/bugs/"
+class BzUrlVar
+  def name()
+    return "bz_url"
+  end
+  
+  def convert(value)
+    return java.net.URL.new(value)
+  end
+end
   
 java_import org.eclipse.ui.PlatformUI
 class BzCmd
@@ -28,8 +37,9 @@ class BzCmd
   def execute(env, cmd)
     return nil if cmd.index("bz") != 0
     bzUrl = getUrl()
+    return true if bzUrl == nil
     bz = cmd.length == 2 ? promptForBz() : getBz(cmd)
-    return if bz == nil
+    return true if bz == nil
     support = PlatformUI.workbench.browserSupport
     display {
       support.createBrowser("bz").openURL(

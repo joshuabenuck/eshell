@@ -91,21 +91,35 @@ end
 # Project / build file support
 java_import org.eclipse.jdt.core.JavaCore
 java_import org.eclipse.core.resources.ResourcesPlugin
+java_import org.eclipse.core.resources.IResourceVisitor
 
 def getProject(name)
-    javaProjects = JavaCore.create(ResourcesPlugin.getWorkspace().getRoot()).getJavaProjects()
-    javaProjects.each do |project|
-        if project.getProject().getDescription().getName() == name
-            return project
-        end
-    end
+    return JavaCore.create(ResourcesPlugin.getWorkspace().getRoot()).getJavaProject(name)
+end
+
+class BuildFileAdder
+  include IResourceVisitor
+  
+  def initialize(buildFiles)
+    @buildFiles = buildFiles
+  end
+  
+  def visit(resource)
+    @buildFiles.push(resource) if resource.rawLocation.to_s.index("build.xml") != nil
+    return false if resource.rawLocation.to_s.index(".svn") != nil
+    return true if resource.type == IResource::FOLDER
+    return false
+  end
 end
 
 def findBuildFiles(project)
     buildFiles = []
     project.getNonJavaResources().each do |f|
-        if f.name.index("build.xml") != nil
-            buildFiles.push(f)
+        next if f.rawLocation.to_s.index(".svn") != nil
+        if f.rawLocation.to_s.index("build.xml") != nil
+          buildFiles.push(f)
+        elsif f.type == IResource::FOLDER
+          f.accept(BuildFileAdder.new(buildFiles))
         end
     end
     return buildFiles

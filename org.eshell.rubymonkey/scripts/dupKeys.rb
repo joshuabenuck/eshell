@@ -1,5 +1,4 @@
 # Menu: Mark Duplicate Keys
-# Key: M3+E
 require 'prelude'
 
 addBundles([

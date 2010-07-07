@@ -62,8 +62,8 @@ class AntShell
     files = @buildFiles.select do |f|
       f.to_s.index(line) != nil
     end
-    raise Exception.new("Too many matches: " + files) if files.size() > 1
-    return nil if files.size() == 0
+    raise Exception.new("Too many matches: " + files.join(" ")) if files.size() > 1
+    raise "Unable to find build file: " + line if files.size == 0
     return BuildFileShell.new(project, files[0])
   end
 end
@@ -85,8 +85,11 @@ class ServerShell
   end
   
   def start(project, server = nil)
-    location = project == nil ? "unknown" : project.project.rawLocation.to_s
-    matches = ServerCore.servers.select { |s| s.runtime.location.to_s.index(location) == 0 || s.name == server}
+    location = "unknown"
+    location = project.project.location.to_s if project != nil and project.project.location != nil
+    matches = ServerCore.servers.select { |s|
+      (s.runtime.location.to_s.index(location) == 0 || s.name == server)
+    }
     raise Exception.new("Too many servers match the active project: " + matches.to_s) if matches.length > 1
     raise Exception.new("No servers match the active project: " + location) if matches.length == 0
     matches[0].synchronousStart(ILaunchManager.DEBUG_MODE, nil)
@@ -94,8 +97,11 @@ class ServerShell
   end
   
   def stop(project, server = nil)
-    location = project == nil ? "unknown" : project.project.rawLocation.to_s
-    matches = ServerCore.servers.select { |s| s.runtime.location.to_s.index(location) == 0 || s.name == server }
+    location = "unknown" 
+    location = project.project.location.to_s if project != nil and project.project.location != nil
+    matches = ServerCore.servers.select { |s|
+      (s.runtime.location.to_s.index(location) == 0 || s.name == server)
+    }
     raise Exception.new("Too many servers match the active project: " + matches.to_s) if matches.length > 1
     raise Exception.new("No servers match the active project: " + location) if matches.length == 0
     matches[0].synchronousStop(false)
@@ -103,36 +109,51 @@ class ServerShell
   end
 end
 
-class Environment
-  def initialize()
-    @props = {}
+class PathVar
+  def name()
+    return "path"
   end
   
-  def restore()
-    self["project"] = getProject($state["project"]) if $state["project"] != nil
-    self["path"] = $state["path"] unless $state["path"] == nil
-  end
-  
-  def project()
-    @props["project"]
-  end
-  
-  def [](key)
-    return @props[key]
-  end
-  
-  def []=(key, value)
-    @props[key] = value
+  def convert(value)
+    return value
   end
 end
 
-class EnvProp
-  def name() end
-    
-  def saveState()
+class ProjectVar
+  def name()
+    return "project"
   end
   
-  def restoreState()
+  def convert(value)
+    proj = getProject(value)
+    raise "Unknown project: " + value if proj == nil
+    return proj
+  end
+end
+
+class SetCmd
+  @@vars = {}
+  def self.register(setVar)
+    @@vars[setVar.name] = setVar
+  end
+  
+  def execute(env, cmd)
+    return nil unless cmd.index("set ") == 0
+    parts = cmd.split(" ")
+    parts.shift; name = parts.shift
+    value = parts.shift
+    while parts.length > 0
+      value += " #{parts.shift}"
+    end
+    if value == nil
+      $state.remove(name)
+      return true
+    end 
+    var = @@vars[name]
+    raise "Unknown environment variable: " + name if var == nil
+    env[name] = var.convert(value)
+    $state[name] = value
+    return true
   end
 end
 
@@ -140,17 +161,20 @@ end
 # This allows us to not store ruby objects in the plugin's state.
 class Eshell
   def initialize()
-    @shell = self
+    SetCmd.register(ProjectVar.new)
+    SetCmd.register(BzUrlVar.new)
+    SetCmd.register(PathVar.new)
     @shells = [self]
     @path = ""
     @env = {}
-    @env["project"] = getProject($state["project"]) if $state["project"] != nil
-    @env["path"] = $state["path"] unless $state["path"] == nil
+    #$state.keys.each {|k| $state.remove(k) }
+  $state.keys.each {|k| runStmt("set #{k} #{$state[k]}", [self]) }
+    #@env["project"] = getProject($state["project"]) if $state["project"] != nil
+    #@env["path"] = $state["path"] unless $state["path"] == nil
     begin
       runCmd(@env["path"]) unless @env["path"] == nil
     rescue Exception => e
-      @env["path"] = ""
-      $state["path"] = ""
+      @env["path"] = $state["path"] = ""
       @shells = [self]
     end
   end
@@ -160,30 +184,38 @@ class Eshell
 
   def runCmd(cmdLine)
     cmdLine.split(";").each { |stmt|
-      (path, shells) = runStmt(stmt.strip, @shells.clone)
-      @shells = @shells | shells and @path += path + " " if shells != nil
+      (path, shell, back) = runStmt(stmt.strip, @shells.clone)
+      if shell != nil
+        parts = @path.split("; ")
+        back.times { parts.shift }
+        parts.push(path)
+        @shells.push(shell)
+        @path = parts.join("; ")
+      end
     }
-    @path = @path.strip
-    @env["path"] = @path
-    $state["path"] = @path
+    @env["path"] = $state["path"] = @path = @path.strip
   end
   
-  def runStmt(stmt, shells)
+  def runStmt(stmt, shells, back=0)
     raise "No such cmd: " + stmt if shells.length == 0
     shell = shells.last
     resultWasShell = false
     result = shell.execute(@env, stmt)
     if result == nil
       shells.pop
-      (ignored, tmp) = runStmt(stmt, shells)
-      result = tmp == nil ? nil : tmp[0]
+      (ignored, tmp, tmpBack) = runStmt(stmt, shells, back + 1)
+      result = nil
+      if tmp != nil
+        result = tmp
+        back = tmpBack
+      end
     end
     if result.class.name =~ /Shell$/
       shells.push(result)
       resultWasShell = true
     end
-    return [stmt, shells] if resultWasShell
-    return [nil, nil]
+    return [stmt, result, back] if resultWasShell
+    return [nil, nil, 0]
   end
   
   def cp(env, cmd)
@@ -201,6 +233,7 @@ class Eshell
     result = cp(env, cmd)
     return result unless result == nil
     [
+      SetCmd.new,
       AntShell.new,
       ServerShell.new,
       BzCmd.new,
