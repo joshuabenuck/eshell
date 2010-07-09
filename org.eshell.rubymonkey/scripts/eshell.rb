@@ -4,6 +4,7 @@
 require 'java'
 require 'prelude'
 require 'bz'
+require 'url'
 require 'dupKeys'
 addBundles(
   ["org.eclipse.ui.console",
@@ -72,6 +73,7 @@ addBundles(["org.eclipse.wst.server.core",
             "org.eclipse.debug.core"])
 java_import org.eclipse.wst.server.core.ServerCore
 java_import org.eclipse.debug.core.ILaunchManager
+#java_import org.eclispe.debug.core.IStreamListener
 class ServerShell
   def execute(env, cmd)
     return nil if cmd.index("server ") != 0
@@ -93,6 +95,11 @@ class ServerShell
     raise Exception.new("Too many servers match the active project: " + matches.to_s) if matches.length > 1
     raise Exception.new("No servers match the active project: " + location) if matches.length == 0
     matches[0].synchronousStart(ILaunchManager.DEBUG_MODE, nil)
+    #TODO: Make an env var.
+    java.lang.Thread.sleep(5000)
+    # Possible alternative approach.
+    #matches[0].launch.processes[0].streamsProxy.outputStreamMonitor.addListener
+    #IStreamListener.streamAppended(text, monitor)
     return true
   end
   
@@ -236,6 +243,8 @@ class Eshell
       SetCmd.new,
       AntShell.new,
       ServerShell.new,
+      UrlCmd.new,
+      DefCmd.new,
       BzCmd.new,
       DupKeysCmd.new
     ].each { |s|
