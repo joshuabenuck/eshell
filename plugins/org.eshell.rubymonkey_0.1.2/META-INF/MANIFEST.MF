@@ -1,0 +1,23 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Eclipse Monkey Ruby Support
+Bundle-SymbolicName: org.eshell.rubymonkey;singleton:=true
+Bundle-Version: 0.1.2
+Bundle-Activator: org.eshell.rubymonkey.RubyPlugin
+Require-Bundle: org.eclipse.core.runtime,
+ org.eclipse.ui,
+ org.eclipse.eclipsemonkey,
+ org.eclipse.eclipsemonkey.doms,
+ org.eclipse.eclipsemonkey.ui,
+ org.eclipse.ui.console
+Eclipse-LazyStart: true
+Bundle-RequiredExecutionEnvironment: JavaSE-1.6
+Bundle-Vendor: Joshua Benuck
+Export-Package: org.eshell.rubymonkey;
+  uses:="org.eclipse.eclipsemonkey,
+   org.eclipse.core.runtime,
+   org.eclipse.ui,
+   org.eclipse.ui.plugin,
+   org.eclipse.eclipsemonkey.language"
+Bundle-ClassPath: rubymonkey.jar,
+ jruby-complete-1.6.0.RC1.jar
