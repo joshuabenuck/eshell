@@ -197,3 +197,261 @@ _run {
     DebugPlugin.default.launchManager.removeLaunchListener(antListener)
   end
 }
+
+$project = nil
+$env = {}
+$last = nil
+$status_line = nil
+
+java_import org.eclipse.ui.console.ConsolePlugin
+java_import org.eclipse.ui.PlatformUI
+
+# Must not be run in UI thread!
+class BuildFileShell
+  def initialize(project, file)
+    @project = project
+    @file = file
+    @runner = AntRunner.new()
+    @runner.buildFileLocation = file.rawLocation.toFile().absolutePath
+  end
+  
+  def execute(env, target)
+    antListener = AntListener.new(@file)
+    begin
+      DebugPlugin.default.launchManager.addLaunchListener(antListener)
+      AntLaunchShortcut.new().launch(@file.fullPath, 
+        @project.getProject(), 
+        ILaunchManager.RUN_MODE, target)
+      antListener.complete.await
+      return true
+    rescue Exception => e
+      alert(e.message + "\n" + e.backtrace.join("\n"))
+    ensure
+      DebugPlugin.default.launchManager.removeLaunchListener(antListener)
+    end
+  end
+end  
+
+module Shell
+  attr_accessor :parent
+  
+  def method_missing(method, *params)
+    if parent != nil
+      parent.send(method, params)
+    else
+      Object.send(method, params)
+    end
+  end
+end
+
+class Hash
+  def to_mod
+    hash = self
+    Module.new {
+      hash.each_pair do |k, v|
+        define_method(k.to_sym) { v }
+      end
+    }
+  end
+end
+
+def register(name, config=nil)
+  if config.is_a? Hash
+    Object.send(:define_method, name) {Object.new.extend(config.to_mod)}
+  else
+    Object.send(:define_method, name) { config }
+  end
+end
+
+def project(name)
+  p = getProject(name.to_s)
+  # TODO: Improve
+  $state["project"] = name.to_s
+  $project = p
+end
+
+def getFile(name)
+  return $project.getProject().getFile(name)
+end
+
+class BuildShell
+  include Shell
+  def initialize(path, targets)
+    @path = path
+    @aliases = {}
+    @targets = []
+    targets.each { |t|
+      if t.is_a? Array
+        name = t.shift
+        @targets.push name
+        t.each { |a|
+          @aliases[a] = name
+        }
+      else
+        @targets.push t
+      end
+    }
+  end
+  
+  def parent
+    ant
+  end
+  
+  def method_missing(name, *args)
+    if @aliases.has_key? name
+      name = @aliases[name]
+    end
+    if @targets.include? name
+      target = name.to_s
+      file = getFile(@path)
+      @runner = AntRunner.new()
+      @runner.buildFileLocation = file.rawLocation.toFile().absolutePath
+      antListener = AntListener.new(file)
+      begin
+        DebugPlugin.default.launchManager.addLaunchListener(antListener)
+        AntLaunchShortcut.new().launch(file.fullPath, 
+          $project.getProject(), 
+          ILaunchManager.RUN_MODE, target)
+        antListener.complete.await
+      rescue Exception => e
+        alert(e.message + "\n" + e.backtrace.join("\n"))
+      ensure
+        DebugPlugin.default.launchManager.removeLaunchListener(antListener)
+      end
+      return self
+    else
+      #raise NoMethodError.new(name.to_s)
+      parent.send(name, *args)
+    end
+  end
+end
+
+def buildShell(path, targets)
+  return BuildShell.new(path, targets)
+end
+
+addBundles([
+  "org.eclipse.ui"
+])
+
+java_import org.eclipse.ui.PlatformUI
+def url(_url = nil, _prompt = "Please enter url: ")
+  _url = prompt(_prompt) if _url == nil  
+  return true if _url == nil
+  _url = "http://#{_url}" if _url.index("http://") != 0
+  support = PlatformUI.workbench.browserSupport
+  display {
+    support.createBrowser("url").openURL(
+      java.net.URL.new(_url))
+  }
+end
+
+def define(word)
+  url("http://google.com/search?q=define:+#{word}")
+end
+
+=begin
+addBundles(["org.eclipse.wst.server.core",
+            "org.eclipse.debug.core"])
+java_import org.eclipse.wst.server.core.ServerCore
+java_import org.eclipse.debug.core.ILaunchManager
+#java_import org.eclispe.debug.core.IStreamListener
+class ServerShell
+  def execute(env, cmd)
+    return nil if cmd.index("server ") != 0
+    project = env["project"]
+    parts = cmd.split(" ")
+    action = parts[1]
+    server = nil; server = parts[2] if parts.length > 2
+    return start(project, server) if action == "start"
+    return stop(project, server) if action == "stop"
+    return nil
+  end
+  
+  def start(project, server = nil)
+    location = "unknown"
+    location = project.project.location.to_s if project != nil and project.project.location != nil
+    matches = ServerCore.servers.select { |s|
+      (s.runtime.location.to_s.index(location) == 0 || s.name == server)
+    }
+    raise Exception.new("Too many servers match the active project: " + matches.to_s) if matches.length > 1
+    raise Exception.new("No servers match the active project: " + location) if matches.length == 0
+    matches[0].synchronousStart(ILaunchManager.DEBUG_MODE, nil)
+    #TODO: Make an env var.
+    java.lang.Thread.sleep(5000)
+    # Possible alternative approach.
+    #matches[0].launch.processes[0].streamsProxy.outputStreamMonitor.addListener
+    #IStreamListener.streamAppended(text, monitor)
+    return true
+  end
+  
+  def stop(project, server = nil)
+    location = "unknown" 
+    location = project.project.location.to_s if project != nil and project.project.location != nil
+    matches = ServerCore.servers.select { |s|
+      (s.runtime.location.to_s.index(location) == 0 || s.name == server)
+    }
+    raise Exception.new("Too many servers match the active project: " + matches.to_s) if matches.length > 1
+    raise Exception.new("No servers match the active project: " + location) if matches.length == 0
+    matches[0].synchronousStop(false)
+    return true
+  end
+end
+=end
+
+def bz(number=nil)
+  number = prompt("Please enter BZ number: ") if number == nil
+  return Object.new if number == nil
+  support = PlatformUI.workbench.browserSupport
+  display {
+    support.createBrowser("bz").openURL(
+      java.net.URL.new($bzUrl + "show_bug.cgi?id=" + number.to_s))
+  }
+end
+
+addBundles([
+  "org.eclipse.ui",
+  "org.eclipse.core.resources"
+])
+java_import org.eclipse.ui.PlatformUI
+java_import org.eclipse.core.resources.IResource
+def dupKeys
+  input = display {
+    PlatformUI.workbench.activeWorkbenchWindow.
+      activePage.activeEditor.editorInput
+  }
+  if input.name.index(".properties") == nil
+    alert(input.name + " is not a properties file.")
+    return Object.new
+  end
+  resource = input.getAdapter(IResource.java_class)
+  reader = java.io.BufferedReader.new(
+    java.io.InputStreamReader.new(resource.contents))
+  keys = {}
+  while reader.ready do
+    line = reader.readLine.strip
+    next if line.size() == 0
+    next if line.index("#") != nil
+    if line.index("=") != nil
+      (key, value) = line.split("=").collect {|i| i.strip}
+      alert("Duplicate key: " + key) if keys.has_key?(key)
+      keys[key] = value
+    end
+  end
+  return Object.new
+end
+
+def run_shell()
+  if $state["project"] != nil
+    project $state["project"]
+  end
+  run {
+    begin
+      cmd = prompt("project: " + $state["project"])
+      return if cmd == nil
+      eval cmd
+    rescue Exception => e
+      alert(e.message + "\n" + e.backtrace.join("\n"))
+    end
+  }
+end
