@@ -447,7 +447,7 @@ def run_shell()
   end
   run {
     begin
-      cmd = prompt("project: " + $state["project"])
+      cmd = prompt("project: " + $state["project"].to_s)
       return if cmd == nil
       eval cmd
     rescue Exception => e
