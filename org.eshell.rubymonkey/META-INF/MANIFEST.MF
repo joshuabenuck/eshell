@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: Eclipse Monkey Ruby Support
 Bundle-SymbolicName: org.eshell.rubymonkey;singleton:=true
-Bundle-Version: 0.1.1
+Bundle-Version: 0.1.2
 Bundle-Activator: org.eshell.rubymonkey.RubyPlugin
 Require-Bundle: org.eclipse.core.runtime,
  org.eclipse.ui,
@@ -20,4 +20,4 @@ Export-Package: org.eshell.rubymonkey;
    org.eclipse.ui.plugin,
    org.eclipse.eclipsemonkey.language"
 Bundle-ClassPath: rubymonkey.jar,
- jruby-complete-1.5.1.jar
+ jruby-complete-1.6.0.RC1.jar

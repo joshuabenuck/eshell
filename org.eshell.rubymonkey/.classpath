@@ -3,6 +3,6 @@
 	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="con" path="org.eclipse.pde.core.requiredPlugins"/>
-	<classpathentry exported="true" kind="lib" path="jruby-complete-1.5.1.jar" sourcepath="c:/src/jruby-1.5.1/src"/>
+	<classpathentry kind="lib" path="jruby-complete-1.6.0.RC1.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
