@@ -573,25 +573,41 @@ def dupKeys
   return Object.new
 end
 
+# http://www.javapractices.com/topic/TopicAction.do?Id=82
 def cc(filename)
   java_import java.awt.Toolkit
   java_import java.awt.datatransfer.DataFlavor
   java_import java.io.FileWriter
   java_import java.io.BufferedWriter
+  java_import javax.imageio.ImageIO
+  java_import java.io.File
   clipboard = Toolkit.defaultToolkit.systemClipboard
-  contents = clipboard.getContents(nil).
-              getTransferData(DataFlavor.stringFlavor)
-  writer = BufferedWriter.new(FileWriter.new($clipboardPath + "/" + filename))
-  writer.write(contents)
-  writer.close
+  contents = clipboard.getContents(nil)
+  if contents.isDataFlavorSupported(DataFlavor.stringFlavor)
+    contents = getTransferData(DataFlavor.stringFlavor)
+    writer = BufferedWriter.new(FileWriter.new($clipboardPath + "/" + filename))
+    writer.write(contents)
+    writer.close
+  elsif contents.isDataFlavorSupported(DataFlavor.imageFlavor)
+    img = contents.getTransferData(DataFlavor.imageFlavor)
+    parts = filename.to_s.split(".")
+    filename = parts[0]
+    ext = (parts.size > 1) ? parts[1] : "png"
+    ImageIO.write(img,ext,File.new($clipboardPath + "/" + filename + "." + ext))
+  else
+    alert("Unsupported data type!")
+  end
 end
 
-def vim
+def vim(filename = nil)
   display {
-    input = PlatformUI.workbench.activeWorkbenchWindow.activePage.
-      activeEditor.editorInput
-    alert("No active editor!") if input == nil
-    system($vimPath + " " + input.file.rawLocation.toFile().absolutePath)
+    if filename == nil
+      input = PlatformUI.workbench.activeWorkbenchWindow.activePage.
+        activeEditor.editorInput
+      alert("No active editor and no filename was specified!") if input == nil
+      filename = input.file.rawLocation.toFile().absolutePath
+    end
+    system($vimPath + " " + filename)
   }
 end
 
