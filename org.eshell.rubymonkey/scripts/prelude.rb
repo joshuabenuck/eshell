@@ -1,3 +1,4 @@
+# Base framework
 def addBundles(names)
   names.each do |name|
     addBundle(name)
@@ -26,6 +27,7 @@ java_import org.eclipse.jface.dialogs.MessageDialog
 java_import org.eclipse.swt.widgets.Display
 java_import java.lang.Runnable
 
+# Thread utilities
 class Runner < java.lang.Thread
   include java.lang.Runnable
   def initialize(&block)
@@ -59,26 +61,79 @@ def display(&block)
   return r.result
 end
 
+# Dialogs
+java_import org.eclipse.swt.SWT
+java_import org.eclipse.swt.widgets.Composite
+java_import org.eclipse.swt.widgets.List
+java_import org.eclipse.swt.layout.GridLayout
+java_import org.eclipse.swt.layout.GridData
+java_import org.eclipse.jface.dialogs.IDialogConstants
+class ListDialog < MessageDialog
+  
+  def initialize(parent, title, image, message, kind, labels, index, items)
+    super(parent, title, image, message, kind, labels, index)
+    @listItems = items
+  end
+  
+  def self.show(title, message, items)
+    display {
+      dialog = ListDialog.new($window.shell, title, nil,
+                message, 0, 
+                [IDialogConstants::OK_LABEL].to_java(:string), 0, items)
+      dialog.open
+    }
+  end
+  
+  def createCustomArea(parent)
+    composite = Composite.new(parent, 0)
+    layout = GridLayout.new
+    layout.numColumns = 1
+    layout.marginHeight = 0
+      #convertVerticalDLUsToPixels(IDialogConstants::VERTICAL_MARGIN)
+    layout.marginWidth = 0 
+      #convertHorizontalDLUsToPixels(IDialogConstants::HORIZONTAL_MARGIN)
+    layout.horizontalSpacing = 0 
+      #convertHorizontalDLUsToPixels(IDialogConstants::HORIZONTAL_SPACING)
+    composite.setLayout(layout)
+    composite.setLayoutData(GridData.new(GridData::FILL_BOTH))
+
+    if @listItems != nil
+      list = List.new(composite, SWT::BORDER)
+      data = GridData.new(GridData::GRAB_HORIZONTAL | 
+                          GridData::GRAB_VERTICAL | 
+                          GridData::HORIZONTAL_ALIGN_FILL | 
+                          GridData::VERTICAL_ALIGN_CENTER)
+      list.setLayoutData(data)
+      list.setItems(@listItems)
+    end
+    return composite
+  end
+end
+
 def alert(message)
   return display {
     MessageDialog.openInformation(
       $window.shell,
-      "Monkey Dialog",
+      "eshell alert",
       message)
   }
 end
 
 def confirm(message)
   return display {
-    MessageDialog.openConfirm($window.shell, "Monkey Confirm", message)
+    MessageDialog.openConfirm($window.shell, "eshell confirm", message)
   }
+end
+
+def list(items, title="eshell list", message="")
+  ListDialog::show(title, message, items)
 end
 
 java_import org.eclipse.jface.dialogs.InputDialog
 java_import org.eclipse.jface.window.Window
 def prompt(message, defaultValue=nil)
   return display {
-    dialog = InputDialog.new(nil, "Monkey Prompt", message, defaultValue, nil)
+    dialog = InputDialog.new(nil, "eshell prompt", message, defaultValue, nil)
     dialogResult = dialog.open
     value = defaultValue
     if dialogResult == Window::OK
@@ -198,40 +253,10 @@ _run {
   end
 }
 
-$project = nil
-$env = {}
-$last = nil
-$status_line = nil
-
 java_import org.eclipse.ui.console.ConsolePlugin
 java_import org.eclipse.ui.PlatformUI
 
-# Must not be run in UI thread!
-class BuildFileShell
-  def initialize(project, file)
-    @project = project
-    @file = file
-    @runner = AntRunner.new()
-    @runner.buildFileLocation = file.rawLocation.toFile().absolutePath
-  end
-  
-  def execute(env, target)
-    antListener = AntListener.new(@file)
-    begin
-      DebugPlugin.default.launchManager.addLaunchListener(antListener)
-      AntLaunchShortcut.new().launch(@file.fullPath, 
-        @project.getProject(), 
-        ILaunchManager.RUN_MODE, target)
-      antListener.complete.await
-      return true
-    rescue Exception => e
-      alert(e.message + "\n" + e.backtrace.join("\n"))
-    ensure
-      DebugPlugin.default.launchManager.removeLaunchListener(antListener)
-    end
-  end
-end  
-
+# Basic shell command registration
 module Shell
   attr_accessor :parent
   
@@ -263,6 +288,11 @@ def register(name, config=nil)
   end
 end
 
+$project = nil
+$env = {}
+$last = nil
+$status_line = nil
+
 def project(name)
   p = getProject(name.to_s)
   # TODO: Improve
@@ -274,6 +304,7 @@ def getFile(name)
   return $project.getProject().getFile(name)
 end
 
+# Must not be run in UI thread!
 class BuildShell
   include Shell
   def initialize(path, targets)
@@ -344,6 +375,20 @@ def url(_url = nil, _prompt = "Please enter url: ")
     support.createBrowser("url").openURL(
       java.net.URL.new(_url))
   }
+end
+
+addBundles(["org.eclipse.ui.browser"])
+java_import org.eclipse.ui.internal.browser.WebBrowserUIPlugin
+def browsers
+  return WebBrowserUIPlugin::browsers
+end
+
+def firefoxDef
+  return browsers.select { |b| b.id == "org.eclipse.ui.browser.firefox" && b.os == "Win32"}[0]
+end
+
+def fx(url)
+  firefoxDef.createBrowser("1", "c:\\progra~2\\mozilla firefox\\firefox.exe", "").openURL(java.net.URL.new(url))
 end
 
 def define(word)
@@ -441,14 +486,40 @@ def dupKeys
   return Object.new
 end
 
+def cc(filename)
+  java_import java.awt.Toolkit
+  java_import java.awt.datatransfer.DataFlavor
+  java_import java.io.FileWriter
+  java_import java.io.BufferedWriter
+  clipboard = Toolkit.defaultToolkit.systemClipboard
+  contents = clipboard.getContents(nil).
+              getTransferData(DataFlavor.stringFlavor)
+  writer = BufferedWriter.new(FileWriter.new($clipboardPath + "/" + filename))
+  writer.write(contents)
+  writer.close
+end
+
+def vim
+  display {
+    input = PlatformUI.workbench.activeWorkbenchWindow.activePage.
+      activeEditor.editorInput
+    alert("No active editor!") if input == nil
+    system($vimPath + " " + input.file.rawLocation.toFile().absolutePath)
+  }
+end
+
 def run_shell()
   if $state["project"] != nil
     project $state["project"]
   end
   run {
     begin
-      cmd = prompt("project: " + $state["project"].to_s)
+      cmd = prompt("project: " + $state["project"].to_s + "\tlast command: " + $state["last_cmd"].to_s)
+      if cmd == ""
+        cmd = $state["last_cmd"]
+      end 
       return if cmd == nil
+      $state["last_cmd"] = cmd 
       eval cmd
     rescue Exception => e
       alert(e.message + "\n" + e.backtrace.join("\n"))
