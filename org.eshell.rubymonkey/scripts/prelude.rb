@@ -129,11 +129,76 @@ def list(items, title="eshell list", message="")
   ListDialog::show(title, message, items)
 end
 
+class CommandHistory
+  attr_accessor :entries
+  def initialize
+    historyString = $state["history"]
+    @entries = []
+    if historyString != nil
+      @entries = historyString.split("\u0001")
+    end
+    @index = @entries.size
+  end
+  
+  def onFirstEntry
+    return @index == 0
+  end
+  
+  def nextEntry
+    if @index < (@entries.size)
+      @index+=1
+      return "" if @entries.size == @index
+      return @entries[@index]
+    end
+    return nil
+  end
+  
+  def prevEntry
+    if @index > 0
+      @index-=1
+      return @entries[@index]
+    end
+    return nil
+  end
+  
+  def addEntry(entry)
+    if entry != @entries[@entries.size - 1]
+      @entries.push entry
+      $state["history"] = @entries.join("\u0001")
+    end
+  end
+end
+$history = CommandHistory.new
+
 java_import org.eclipse.jface.dialogs.InputDialog
 java_import org.eclipse.jface.window.Window
-def prompt(message, defaultValue=nil)
+java_import org.eclipse.swt.events.KeyListener
+java_import org.eclipse.swt.graphics.Point
+class CommandHistoryListener
+  include KeyListener
+  
+  def keyReleased(event)
+    entry = nil
+    if event.keyCode == SWT::ARROW_UP
+      entry = $history.prevEntry
+    elsif event.keyCode == SWT::ARROW_DOWN
+      entry = $history.nextEntry
+    end
+    event.source.setText(entry) if entry != nil
+    text = event.source.text
+    pos = $history.onFirstEntry ? 0 : text.size
+    event.source.setSelection(Point.new(pos, pos))
+    event.source.redraw
+  end
+  def keyPressed(event)
+  end
+end
+
+def prompt(message, defaultValue=nil, main=false)
   return display {
     dialog = InputDialog.new(nil, "eshell prompt", message, defaultValue, nil)
+    dialog.create
+    dialog.text.addKeyListener(CommandHistoryListener.new) if main
     dialogResult = dialog.open
     value = defaultValue
     if dialogResult == Window::OK
@@ -141,6 +206,10 @@ def prompt(message, defaultValue=nil)
     end
     value
   }
+end
+
+def history
+  list $history.entries
 end
 
 # Project / build file support
@@ -514,12 +583,16 @@ def run_shell()
   end
   run {
     begin
-      cmd = prompt("project: " + $state["project"].to_s + "\tlast command: " + $state["last_cmd"].to_s)
+      cmd = prompt("project: " + $state["project"].to_s + 
+        "\tlast command: " + $state["last_cmd"].to_s, defaultValue=nil,
+          main=true)
       if cmd == ""
         cmd = $state["last_cmd"]
+      else
+        $history.addEntry(cmd)
       end 
       return if cmd == nil
-      $state["last_cmd"] = cmd 
+      $state["last_cmd"] = cmd
       eval cmd
     rescue Exception => e
       alert(e.message + "\n" + e.backtrace.join("\n"))
