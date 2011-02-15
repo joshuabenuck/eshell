@@ -122,7 +122,8 @@ class ListDialog < MessageDialog
   end
 end
 
-def alert(message)
+def alert(message=nil)
+  return curry(method(:alert)) if message == nil
   return display {
     MessageDialog.openInformation(
       $window.shell,
@@ -474,8 +475,9 @@ def firefoxDef
   return browsers.select { |b| b.id == "org.eclipse.ui.browser.firefox" && b.os == "Win32"}[0]
 end
 
+$firefoxPath = "c:\\progra~2\\mozilla firefox\\firefox.exe"
 def fx(url)
-  firefoxDef.createBrowser("1", "c:\\progra~2\\mozilla firefox\\firefox.exe", "").openURL(java.net.URL.new(url))
+  firefoxDef.createBrowser("1", $firefoxPath, "").openURL(java.net.URL.new(url))
 end
 
 def define(word)
@@ -600,6 +602,7 @@ def cc(filename)
 end
 
 def vim(filename = nil)
+  java_import java.lang.Runtime
   display {
     if filename == nil
       input = PlatformUI.workbench.activeWorkbenchWindow.activePage.
@@ -607,11 +610,26 @@ def vim(filename = nil)
       alert("No active editor and no filename was specified!") if input == nil
       filename = input.file.rawLocation.toFile().absolutePath
     end
-    system($vimPath + " " + filename)
+    Runtime.runtime.exec($vimPath + " -f " + filename)
   }
 end
 
-def pmethods(obj)
+class Object
+  public
+  def | partial
+    return partial.call(self)
+  end
+  
+end
+
+def curry fn,*a
+  return lambda { |*b|
+     fn.call(*(a + b))
+   }
+end
+
+def pmethods(obj=nil)
+  return curry(method(:pmethods)) if obj == nil
   list(obj.methods.sort)
 end
 
