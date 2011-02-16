@@ -122,8 +122,7 @@ class ListDialog < MessageDialog
   end
 end
 
-def alert(message=nil)
-  return curry(method(:alert)) if message == nil
+def alert(message)
   return display {
     MessageDialog.openInformation(
       $window.shell,
@@ -392,6 +391,10 @@ def getFile(name)
   return $project.getProject().getFile(name)
 end
 
+def getFiles(names)
+  names.map {|n| $project.project.getFile(name)}
+end
+
 # Must not be run in UI thread!
 class BuildShell
   include Shell
@@ -401,6 +404,7 @@ class BuildShell
     @targets = []
     targets.each { |t|
       if t.is_a? Array
+        t = t.clone
         name = t.shift
         @targets.push name
         t.each { |a|
@@ -449,12 +453,11 @@ def buildShell(path, targets)
   return BuildShell.new(path, targets)
 end
 
-addBundles([
-  "org.eclipse.ui"
-])
-
-java_import org.eclipse.ui.PlatformUI
 def url(_url = nil, _prompt = "Please enter url: ")
+  addBundles([
+    "org.eclipse.ui"
+  ])
+  java_import org.eclipse.ui.PlatformUI
   _url = prompt(_prompt) if _url == nil  
   return true if _url == nil
   _url = "http://#{_url}" if _url.index("http://") != 0
@@ -465,9 +468,9 @@ def url(_url = nil, _prompt = "Please enter url: ")
   }
 end
 
-addBundles(["org.eclipse.ui.browser"])
-java_import org.eclipse.ui.internal.browser.WebBrowserUIPlugin
 def browsers
+  addBundles(["org.eclipse.ui.browser"])
+  java_import org.eclipse.ui.internal.browser.WebBrowserUIPlugin
   return WebBrowserUIPlugin::browsers
 end
 
@@ -543,13 +546,13 @@ def bz(number=nil)
   }
 end
 
-addBundles([
-  "org.eclipse.ui",
-  "org.eclipse.core.resources"
-])
-java_import org.eclipse.ui.PlatformUI
-java_import org.eclipse.core.resources.IResource
 def dupKeys
+  addBundles([
+    "org.eclipse.ui",
+    "org.eclipse.core.resources"
+  ])
+  java_import org.eclipse.ui.PlatformUI
+  java_import org.eclipse.core.resources.IResource
   input = display {
     PlatformUI.workbench.activeWorkbenchWindow.
       activePage.activeEditor.editorInput
@@ -610,17 +613,18 @@ def vim(filename = nil)
       alert("No active editor and no filename was specified!") if input == nil
       filename = input.file.rawLocation.toFile().absolutePath
     end
-    Runtime.runtime.exec($vimPath + " -f " + filename)
+    Runtime.runtime.exec($vimPath + " --servername eclipse --remote-tab-silent " + filename)
   }
 end
 
+=begin
 class Object
   public
   def | partial
     return partial.call(self)
   end
-  
 end
+=end
 
 def curry fn,*a
   return lambda { |*b|
@@ -628,10 +632,27 @@ def curry fn,*a
    }
 end
 
-def pmethods(obj=nil)
-  return curry(method(:pmethods)) if obj == nil
+def pmethods(obj)
   list(obj.methods.sort)
 end
+
+java_import org.eclipse.ui.part.FileEditorInput
+def edit(file)
+  display {
+    page = PlatformUI.workbench.activeWorkbenchWindow.activePage
+    desc = PlatformUI.workbench.editorRegistry.getDefaultEditor(file.name)
+    page.openEditor(FileEditorInput.new(file), desc.id)
+  }
+end
+
+def config file
+  p = getProject("eshell")
+  p = getProject("org.eshell.rubymonkey") if !p.isOpen
+  edit p.project.getFile(file)
+end
+
+def eshellrc; config "scripts/eshellrc.rb"; end
+def eshell; config "scripts/eshell.rb"; end
 
 def run_shell()
   if $state["project"] != nil
@@ -649,7 +670,13 @@ def run_shell()
       end 
       return if cmd == nil
       $state["last_cmd"] = cmd
-      eval cmd
+      retValue = "!undefined!"
+      cmd.split("|").each { |c|
+        if retValue != "!undefined!"
+          c += " retValue"
+        end
+        retValue = eval c
+      }
     rescue Exception => e
       alert(e.message + "\n" + e.backtrace.join("\n"))
     end
