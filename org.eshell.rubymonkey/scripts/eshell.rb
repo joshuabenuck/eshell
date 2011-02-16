@@ -212,11 +212,11 @@ class CommandHistoryListener
   end
 end
 
-def prompt(message, defaultValue=nil, main=false)
+def prompt(message, defaultValue=nil, opts={})
   return display {
     dialog = InputDialog.new(nil, "eshell prompt", message, defaultValue, nil)
     dialog.create
-    dialog.text.addKeyListener(CommandHistoryListener.new) if main
+    dialog.text.addKeyListener(opts[:keyListener]) if opts[:keyListener]
     dialogResult = dialog.open
     value = defaultValue
     if dialogResult == Window::OK
@@ -392,7 +392,7 @@ def getFile(name)
 end
 
 def getFiles(names)
-  names.map {|n| $project.project.getFile(name)}
+  names.map {|n| $project.project.getFile(n)}
 end
 
 # Must not be run in UI thread!
@@ -645,6 +645,13 @@ def edit(file)
   }
 end
 
+def xargs *args
+  m = args.shift
+  args.slice!(-1).each {|a|
+    method(m).call(*(args + [a]))
+  }
+end
+
 def config file
   p = getProject("eshell")
   p = getProject("org.eshell.rubymonkey") if !p.isOpen
@@ -661,8 +668,8 @@ def run_shell()
   run {
     begin
       cmd = prompt("project: " + $state["project"].to_s + 
-        "\tlast command: " + $state["last_cmd"].to_s, defaultValue=nil,
-          main=true)
+        "\tlast command: " + $state["last_cmd"].to_s, nil,
+        {:keyListener => CommandHistoryListener.new})
       if cmd == ""
         cmd = $state["last_cmd"]
       else
@@ -673,6 +680,7 @@ def run_shell()
       retValue = "!undefined!"
       cmd.split("|").each { |c|
         if retValue != "!undefined!"
+          c += "," if cmd.count(" ") > 1
           c += " retValue"
         end
         retValue = eval c
