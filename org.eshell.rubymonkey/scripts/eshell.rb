@@ -71,20 +71,26 @@ java_import org.eclipse.jface.dialogs.IDialogConstants
 java_import org.eclipse.swt.events.SelectionListener
 class ListDialog < MessageDialog
   include SelectionListener
+  attr_accessor :selected
   
-  def initialize(parent, title, image, message, kind, labels, index, items)
+  def initialize(parent, title, image, message, kind, labels, index, items, opts={})
     super(parent, title, image, message, kind, labels, index)
     @listItems = items
-    @selectionHandler = nil
+    @selectionHandler = opts[:selectionHandler]
+    @selected = nil
   end
   
-  def self.show(title, message, items)
+  def self.show(title, message, items, opts={})
+    retValue = -1
+    dialog = nil
     display {
       dialog = ListDialog.new($window.shell, title, nil,
                 message, 0, 
-                [IDialogConstants::OK_LABEL].to_java(:string), 0, items)
-      dialog.open
+                [IDialogConstants::OK_LABEL].to_java(:string), 0, items, opts)
+      retValue = dialog.open
     }
+    return dialog.selected if retValue != -1
+    return retValue
   end
   
   def createCustomArea(parent)
@@ -101,18 +107,20 @@ class ListDialog < MessageDialog
     composite.setLayoutData(GridData.new(GridData::FILL_BOTH))
 
     if @listItems != nil
-      list = List.new(composite, SWT::BORDER)
+      @list = List.new(composite, SWT::BORDER)
       data = GridData.new(GridData::GRAB_HORIZONTAL | 
                           GridData::GRAB_VERTICAL | 
                           GridData::HORIZONTAL_ALIGN_FILL | 
                           GridData::VERTICAL_ALIGN_CENTER)
-      list.setLayoutData(data)
-      list.setItems(@listItems)
+      @list.setLayoutData(data)
+      @list.setItems(@listItems)
+      @list.addSelectionListener self
     end
     return composite
   end
   
   def widgetSelected(event)
+    @selected = @listItems[@list.selectionIndex]
     if @selectionHandler != nil
       @selectionHandler.call(event)
     end
@@ -123,6 +131,7 @@ class ListDialog < MessageDialog
 end
 
 def alert(message)
+  message = message.to_s
   return display {
     MessageDialog.openInformation(
       $window.shell,
@@ -137,8 +146,8 @@ def confirm(message)
   }
 end
 
-def list(items, title="eshell list", message="")
-  ListDialog::show(title, message, items)
+def list(items, title="eshell list", message="", opts={})
+  ListDialog::show(title, message, items, opts)
 end
 
 $historyLimit = 25
@@ -227,7 +236,8 @@ def prompt(message, defaultValue=nil, opts={})
 end
 
 def history
-  list($history.entries)
+  retValue = list($history.entries, "Choose history entry to run", "")
+  run_cmd retValue if retValue != -1
 end
 
 # Project / build file support
@@ -393,6 +403,21 @@ end
 
 def getFiles(names)
   names.map {|n| $project.project.getFile(n)}
+end
+
+def getFolder(name)
+  return $project.getProject().getFolder(name)
+end
+
+def getFolders(names)
+  names.map {|n| $project.project.getFolder(n)}
+end
+
+def markDerived dirName="build"
+  dirs = findDirs dirName
+  folders = xmap :getFolder, dirs
+  margs :setDerived, true, nil, folders
+  list folders.collect{|f| f.to_s}, "Following dirs marked as derived", ""  
 end
 
 # Must not be run in UI thread!
@@ -645,10 +670,19 @@ def edit(file)
   }
 end
 
+# Runs a method on each element in the list.
 def xargs *args
   m = args.shift
   args.slice!(-1).each {|a|
     method(m).call(*(args + [a]))
+  }
+end
+
+# Like xargs, but runs the method off of the objects in the list.
+def margs *args
+  m = args.shift
+  args.slice!(-1).each {|a|
+    a.method(m).call(*(args))
   }
 end
 
@@ -661,6 +695,45 @@ end
 def eshellrc; config "scripts/eshellrc.rb"; end
 def eshell; config "scripts/eshell.rb"; end
 
+def run_cmd cmd
+  begin
+    if cmd == ""
+      cmd = $state["last_cmd"]
+    else
+      $history.addEntry(cmd)
+    end 
+    return if cmd == nil
+    $state["last_cmd"] = cmd
+    retValue = "!undefined!"
+    cmd.split("|").each { |c|
+      if retValue != "!undefined!"
+        c += "," if c.count(" ") > 1
+        c += " retValue"
+      end
+      retValue = eval c
+    }
+  rescue Exception => e
+    alert(e.message + "\n" + e.backtrace.join("\n"))
+  end
+end
+
+def findDirs dirName="build"
+  root = $project.project.location.to_s
+  return Dir.glob(File.join(root + "/**", dirName)).collect {|d|
+    path = d.to_s.slice(root.size + 1, d.to_s.size)
+    print path
+    path
+  }
+end
+
+def xmap f, l
+  return l.collect {|e| method(f).call(e) }
+end
+
+def mmap f, l
+  return l.collect {|e| e.method(f).call(*a) }
+end
+
 def run_shell()
   if $state["project"] != nil
     project $state["project"]
@@ -670,21 +743,7 @@ def run_shell()
       cmd = prompt("project: " + $state["project"].to_s + 
         "\tlast command: " + $state["last_cmd"].to_s, nil,
         {:keyListener => CommandHistoryListener.new})
-      if cmd == ""
-        cmd = $state["last_cmd"]
-      else
-        $history.addEntry(cmd)
-      end 
-      return if cmd == nil
-      $state["last_cmd"] = cmd
-      retValue = "!undefined!"
-      cmd.split("|").each { |c|
-        if retValue != "!undefined!"
-          c += "," if cmd.count(" ") > 1
-          c += " retValue"
-        end
-        retValue = eval c
-      }
+      run_cmd cmd
     rescue Exception => e
       alert(e.message + "\n" + e.backtrace.join("\n"))
     end
