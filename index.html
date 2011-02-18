@@ -1,14 +1,18 @@
 <html>
-<body>
-<p>This is the eshell update site.</p>
-<p>Here you will find Eclipse update files for the following tools:
-<ul>
-<li>eshell</li>
-<li>eshell Eclipse Monkey Fork</li>
-<li>eshell Ruby Monkey</li>
-</ul>
-</p>
-<p>Download and install these tools using the Eclipse Update Manager pointing to: <code>http://joshuabenuck.github.com/eshell/</code>
-</p>
-</body>
+    <body>
+        <p>This is the home page for the eshell project.</p>
+        <p>eshell is a tool for automating common eclipse tasks.</p>
+        <p>To run the tool, hit Alt-Z. The following commands are available.</p>
+        <ul>
+          <li>project =project name=: Changes the currently selected project.</li>
+          <li>dupKeys: Checks the current file for duplicate keys. May only be run on property files.</li>
+          <li>bz =number=: Opens the specified bugzilla entry. Defaults to using eclipse's bugzilla. Set $bugzillaUrl to change.</li>
+          <li>vim: Opens current file in vim. Uses c:\windows\gvim.bat by default. Set $vimPath to change.</li>
+          <li>cc =filename=: Copies clipboard to named file. Stores file under c:\src by default. Set $clipboardPath to change.</li>
+          <li>ant =build file=: Changes into a subshell for the named ant file.</li>
+        </ul>
+        <p>eshell is built on top of a fork of eclipse monkey w/ ruby support.</p>
+        <p>Eclipse update site: <code>http://joshuabenuck.github.com/eshell/</code>
+        </p>
+    </body>
 </html>
